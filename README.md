@@ -1,4 +1,4 @@
- Picky — as picky as you are
+# Picky — as picky as you are
 
 c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion People
 
