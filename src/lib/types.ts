@@ -57,6 +57,7 @@ export interface PickyState {
   profile: TasteProfile;
   review: { sceneId: string; aId: PhotoId; bId: PhotoId; index: number; total: number } | null;
   busy: boolean;
+  status?: string; // progress line while busy, e.g. "Looking at scene 2 of 4…"
   freedBytes: number;
   error?: string;
 }

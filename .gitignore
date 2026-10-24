@@ -46,3 +46,4 @@ example
 .env
 server/.env
 server/cache/
+.picky-cache/

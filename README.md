@@ -23,8 +23,8 @@ c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion Peo
 | **Your taste** 页：证据条、状态标签、总结句、Reset | ✅ 完成 | Max |
 | 本地通知（模拟夜间整理 5 秒后弹出，点开进入 Your call） | ✅ 已写 · ⏳ 待在 iPhone 上确认 | Max |
 | 在 iPhone 上用 Expo Go 跑通 | ✅ 通过 `--tunnel` 能打开（校园 Wi-Fi 会挡住局域网连接） | — |
-| `server/`：`/health`、`/api/select`（Claude）、缓存 | ❌ 未开始（提议由 Max 来做，待 Lingge 确认） | 待定 |
-| `src/lib/`：读相册、分场景、压缩图片、调服务器、真实 `usePicky` | ❌ 未开始 | Lingge |
+| Claude 打分接口 `src/app/api/select+api.ts`（Expo Router API route，跑在开发服务器里，带缓存） | ✅ 完成，已用真实调用测过 | Max |
+| `src/lib/`：读相册（今天、有人）、分场景、压缩、调接口、引擎 `taste.ts`、真实 `usePicky` | ✅ 完成 · ⏳ 等真照片在 iPhone 上测 | Max |
 | Google Drive 上传 + 删除 | ❌ 建议先砍，16:15 后有余力再补 | 待定 |
 | demo 照片（相册 **Picky Demo**） | ❌ 未拍 | Max |
 
@@ -33,6 +33,14 @@ c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion Peo
 ---
 
 ## 怎么跑起来
+
+**真实数据需要两样东西：**
+1. 项目根目录的 `.env` 里有 `ANTHROPIC_API_KEY=...`（不进 git）。加完要重启 `npx expo start`。
+2. iPhone「照片」里有一个叫 **Picky Demo** 的相册，放**今天拍的**单人照。拍摄时间相隔超过 5 分钟就算一个新场景。
+
+手机上默认用真实数据；网页版（没有相册）自动用模拟数据。想在手机上也用模拟数据：`.env` 里加 `EXPO_PUBLIC_USE_MOCK=1`。
+
+Claude 的打分结果会缓存在 `.picky-cache/`（同一组照片不会重复花钱，现场网络不好也能演示）。
 
 ```bash
 git clone https://github.com/maxgeng1107/picky.git
@@ -65,7 +73,7 @@ src/
   hooks/use-picky.ts   Max     ⭐ 唯一切换点：现在指向 mock，接入时改成 src/lib
   mock/picky-mock.tsx  Max     模拟版 usePicky()，真实实现以它为参考
   lib/                 Lingge  types.ts（共享接口）+ 真实逻辑
-server/                待定    Express + Claude + Drive（还不存在）
+  app/api/select+api.ts        Claude 打分接口（开发服务器上运行，密钥不进 app）
 docs/backend-spec.md           后端规格：API、prompt、维度、学习规则、Drive
 docs/handoff.md                交接总结：最新决定、待确认事项、下一步
 ```

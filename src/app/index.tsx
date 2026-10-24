@@ -15,9 +15,20 @@ export default function TodayScreen() {
   const toFree = photos.filter((p) => p.status === 'binned' && !p.deleted).reduce((n, p) => n + (p.sizeBytes ?? 0), 0);
   const asks = state.review ? state.review.total - state.review.index : 0;
 
+  const notice = state.error ? (
+    <Card style={styles.error}>
+      <ThemedText style={styles.errorText}>{state.error}</ThemedText>
+    </Card>
+  ) : state.busy && state.status ? (
+    <ThemedText themeColor="textSecondary" style={styles.center}>
+      {state.status}
+    </ThemedText>
+  ) : null;
+
   if (curated.length === 0) {
     return (
       <Screen title="Picky" subtitle="As picky as you are.">
+        {notice}
         <Card style={styles.empty}>
           <ThemedText style={styles.emptyTitle}>Nothing tidied yet</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
@@ -35,6 +46,7 @@ export default function TodayScreen() {
 
   return (
     <Screen title="Today" subtitle="As picky as you are.">
+      {notice}
       <Pressable onPress={() => asks > 0 && router.push('/review')}>
         <View style={styles.banner}>
           <ThemedText style={styles.bannerTitle}>Picky tidied {photos.length} photos</ThemedText>
@@ -72,6 +84,8 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.three },
   emptyTitle: { fontSize: 22, fontWeight: 700 },
   center: { textAlign: 'center' },
+  error: { backgroundColor: 'rgba(220, 38, 38, 0.15)' },
+  errorText: { color: '#DC2626', fontWeight: 700 },
   banner: { backgroundColor: Accent, borderRadius: Spacing.four, padding: Spacing.three, gap: Spacing.one },
   bannerTitle: { color: '#fff', fontSize: 20, fontWeight: 800 },
   bannerBody: { color: '#fff', fontSize: 16, fontWeight: 600 },
