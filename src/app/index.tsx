@@ -1,98 +1,80 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { SceneCard } from '@/components/picky/scene-card';
+import { Card, PickyButton, Screen } from '@/components/picky/ui';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Accent, formatMb } from '@/constants/picky';
+import { Spacing } from '@/constants/theme';
+import { usePicky } from '@/hooks/use-picky';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
+export default function TodayScreen() {
+  const { state, actions } = usePicky();
+  const photos = Object.values(state.photosById);
+  const curated = state.scenes.filter((s) => s.keptIds.length > 0);
+  const toFree = photos.filter((p) => p.status === 'binned' && !p.deleted).reduce((n, p) => n + (p.sizeBytes ?? 0), 0);
+  const asks = state.review ? state.review.total - state.review.index : 0;
+
+  if (curated.length === 0) {
     return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+      <Screen title="Picky" subtitle="As picky as you are.">
+        <Card style={styles.empty}>
+          <ThemedText style={styles.emptyTitle}>Nothing tidied yet</ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.center}>
+            Every night while your phone charges, Picky keeps the photos you would keep and moves the rest to your
+            Cloud Bin. It only pings you when it needs your call.
+          </ThemedText>
+          <PickyButton label="Simulate tonight" onPress={actions.simulateNight} loading={state.busy} />
+          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+            Demo: runs tonight&apos;s curation now, then sends the morning notification in 5 s.
+          </ThemedText>
+        </Card>
+      </Screen>
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
 
-export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
+    <Screen title="Today" subtitle="As picky as you are.">
+      <Pressable onPress={() => asks > 0 && router.push('/review')}>
+        <View style={styles.banner}>
+          <ThemedText style={styles.bannerTitle}>Picky tidied {photos.length} photos</ThemedText>
+          <ThemedText style={styles.bannerBody}>
+            {asks > 0 ? `${asks} need your call → Review` : 'All caught up — see what Picky learned in Taste'}
           </ThemedText>
-        </ThemedView>
+        </View>
+      </Pressable>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Card style={styles.storage}>
+        <View style={{ flex: 1 }}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Freed so far
+          </ThemedText>
+          <ThemedText style={styles.freed}>{formatMb(state.freedBytes)}</ThemedText>
+        </View>
+        <PickyButton
+          label={toFree > 0 ? `Free up ${formatMb(toFree)}` : 'Nothing to free'}
+          onPress={actions.freeUpSpace}
+          disabled={toFree === 0}
+          loading={state.busy}
+        />
+      </Card>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      {curated.map((scene) => (
+        <SceneCard key={scene.id} scene={scene} photosById={state.photosById} profile={state.profile} />
+      ))}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <PickyButton label="Simulate tonight again" variant="ghost" onPress={actions.simulateNight} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  empty: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.three },
+  emptyTitle: { fontSize: 22, fontWeight: 700 },
+  center: { textAlign: 'center' },
+  banner: { backgroundColor: Accent, borderRadius: Spacing.four, padding: Spacing.three, gap: Spacing.one },
+  bannerTitle: { color: '#fff', fontSize: 20, fontWeight: 800 },
+  bannerBody: { color: '#fff', fontSize: 16, fontWeight: 600 },
+  storage: { flexDirection: 'row', alignItems: 'center' },
+  freed: { fontSize: 28, lineHeight: 34, fontWeight: 800 },
 });
