@@ -67,6 +67,7 @@ src/
   lib/                 Lingge  types.ts（共享接口）+ 真实逻辑
 server/                待定    Express + Claude + Drive（还不存在）
 docs/backend-spec.md           后端规格：API、prompt、维度、学习规则、Drive
+docs/handoff.md                交接总结：最新决定、待确认事项、下一步
 ```
 
 - 只有 Lingge 改 `src/lib/types.ts` 和装依赖，需要的话先说一声。
