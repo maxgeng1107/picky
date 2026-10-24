@@ -113,6 +113,14 @@ export async function toBase64(uri: string): Promise<string> {
   return result.base64;
 }
 
+// Full-resolution JPEG for the Drive backup (HEIC photos are converted; Live Photo motion isn't kept).
+export async function toFullJpegBase64(uri: string): Promise<string> {
+  const image = await ImageManipulator.manipulate(uri).renderAsync();
+  const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
+  if (!result.base64) throw new Error('Could not read a photo');
+  return result.base64;
+}
+
 export async function deleteFromPhone(ids: PhotoId[]): Promise<boolean> {
   if (ids.length === 0) return true;
   return MediaLibrary.deleteAssetsAsync(ids);

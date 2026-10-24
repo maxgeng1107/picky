@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 
-import { selectScene } from '@/lib/api';
+import { isDriveConfigured, selectScene, uploadToDrive } from '@/lib/api';
 import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from '@/lib/notify';
 import {
   deleteFromPhone,
@@ -12,6 +12,7 @@ import {
   onLibraryChange,
   peekTodaysPhotoTimes,
   toBase64,
+  toFullJpegBase64,
 } from '@/lib/photos';
 import { advance, applyAnswer, applyRescue, emptyProfile } from '@/lib/taste';
 import type { PhotoId, PickyActions, PickyContextValue, PickyState } from '@/lib/types';
@@ -153,34 +154,55 @@ export function PickyProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Back up to Google Drive first, then delete from the phone only the photos Drive confirmed.
   const freeUpSpace = useCallback(async () => {
     const binned = Object.values(stateRef.current.photosById).filter((p) => p.status === 'binned' && !p.deleted);
     if (binned.length === 0) return;
+    const drive = await isDriveConfigured();
     const ok = await new Promise<boolean>((resolve) =>
       Alert.alert(
         'Free up space',
-        `Delete ${binned.length} photos Picky didn't keep? They stay in Recently Deleted for 30 days. (Drive backup isn't connected in this demo.)`,
+        drive
+          ? `Back up ${binned.length} photos Picky didn't keep to your Google Drive ("Picky Cloud Bin", kept 30 days), then delete them from this phone?`
+          : `Google Drive isn't connected. Delete ${binned.length} photos Picky didn't keep? They stay in Recently Deleted for 30 days.`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+          { text: drive ? 'Back up & delete' : 'Delete', style: 'destructive', onPress: () => resolve(true) },
         ],
       ),
     );
     if (!ok) return;
     try {
-      const deleted = await deleteFromPhone(binned.map((p) => p.id));
+      let toDelete = binned;
+      let failed = 0;
+      if (drive) {
+        toDelete = [];
+        for (const [i, p] of binned.entries()) {
+          setBusy(`Backing up ${i + 1} of ${binned.length} to Google Drive…`);
+          try {
+            const driveFileId = await uploadToDrive(p.id, `picky-${p.takenAt}.jpg`, await toFullJpegBase64(p.uri));
+            toDelete.push({ ...p, driveFileId });
+            setState((s) => ({ ...s, photosById: { ...s.photosById, [p.id]: { ...s.photosById[p.id], driveFileId } } }));
+          } catch {
+            failed += 1; // never delete a photo whose backup failed
+          }
+        }
+        setBusy(undefined);
+      }
+      const deleted = await deleteFromPhone(toDelete.map((p) => p.id));
       if (!deleted) return;
       setState((s) => {
         let freed = 0;
         const photosById = { ...s.photosById };
-        for (const p of binned) {
+        for (const p of toDelete) {
           freed += p.sizeBytes ?? 0;
           photosById[p.id] = { ...photosById[p.id], deleted: true };
         }
-        return { ...s, photosById, freedBytes: s.freedBytes + freed };
+        const error = failed > 0 ? `${failed} photos couldn't be backed up, so Picky kept them on your phone.` : undefined;
+        return { ...s, photosById, freedBytes: s.freedBytes + freed, error };
       });
     } catch (e) {
-      setState((s) => ({ ...s, error: errorText(e) }));
+      setState((s) => ({ ...s, busy: false, status: undefined, error: errorText(e) }));
     }
   }, []);
 

@@ -12,6 +12,27 @@ export interface SelectResponse {
   photos: ScoredPhoto[];
 }
 
+export async function isDriveConfigured(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/upload');
+    return res.ok && ((await res.json()) as { configured: boolean }).configured;
+  } catch {
+    return false;
+  }
+}
+
+// Back up one photo to Google Drive; resolves with the Drive file id only once Drive has stored it.
+export async function uploadToDrive(id: string, filename: string, imageBase64: string): Promise<string> {
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, filename, imageBase64 }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { driveFileId?: string; error?: string };
+  if (!res.ok || !json.driveFileId) throw new Error(json.error ?? `Upload failed (${res.status})`);
+  return json.driveFileId;
+}
+
 // In development, a relative URL goes to the Expo dev server, which also runs src/app/api/select+api.ts.
 export async function selectScene(sceneId: string, photos: { id: string; imageBase64: string }[]): Promise<SelectResponse> {
   const res = await fetch('/api/select', {
