@@ -4,6 +4,7 @@
 //   scene 1: side face wins twice  → "face looks smaller" ↑, "facing the camera" ↓
 //   scene 2: frontal face wins     → "facing the camera" becomes "doesn't care"
 //   scene 3: no question needed    → generic app and Picky keep different photos
+// Each scene keeps 1–3 photos: everything scoring close to the best one (see pickKeepers).
 import * as Notifications from 'expo-notifications';
 import {
   createContext,
@@ -32,6 +33,9 @@ import type {
 } from '@/lib/types';
 
 const DIFF_MIN = 2;
+const MAX_KEEP = 3; // keep 1–3 photos per scene
+const KEEP_MARGIN = 2; // keep photos whose score is within 2 of the best one
+const NEAR_DUPLICATE_DIFF = 1; // total score difference at or below this = same shot
 const MB = 1024 * 1024;
 
 const SEED_CRITERIA: Pick<Criterion, 'key' | 'name' | 'kind'>[] = [
@@ -210,7 +214,9 @@ function reasonFor(kept: Photo, others: Photo[], profile: TasteProfile): string 
     const o = Math.max(...scored);
     if (!best || k - o > best.k - best.o) best = { c, k, o };
   }
-  return best ? `Kept: ${best.c.name} (${best.k} vs ${best.o})` : 'Kept: best match for your taste so far';
+  if (!best) return 'Kept: best match for your taste so far';
+  if (best.k <= best.o) return 'Kept: almost as good as the top pick, different shot';
+  return `Kept: ${best.c.name} (${best.k} vs ${best.o})`;
 }
 
 // Rank one unreviewed scene with the current profile. The real app can do the same:
@@ -221,31 +227,57 @@ function curateScene(state: PickyState, sceneId: string): PickyState {
   const mock = MOCK_SCENES.find((s) => s.id === sceneId)!;
   const photos = scene.photoIds.map((id) => state.photosById[id]);
   const candidates = photos.filter((p) => !p.gated && p.scores);
+  if (candidates.length === 0) return state;
   const useTaste = hasEvidence(state.profile);
+  const score = (p: Photo) => (useTaste ? tasteScore(p.scores!, state.profile) : genericScore(p.scores!));
   const byGeneric = [...candidates].sort((a, b) => genericScore(b.scores!) - genericScore(a.scores!));
-  const byTaste = useTaste
-    ? [...candidates].sort((a, b) => tasteScore(b.scores!, state.profile) - tasteScore(a.scores!, state.profile))
-    : byGeneric;
-  const kept = byTaste[0];
+  const ranked = [...candidates].sort((a, b) => score(b) - score(a));
+  const kept = pickKeepers(ranked, score);
+  const keptIds = kept.map((p) => p.id);
   const generic = byGeneric[0];
+  const others = candidates.filter((c) => !keptIds.includes(c.id));
 
   const photosById = { ...state.photosById };
   for (const p of photos) {
+    const isKept = keptIds.includes(p.id);
     photosById[p.id] = {
       ...p,
-      status: p.id === kept.id ? 'kept' : 'binned',
+      status: isKept ? 'kept' : 'binned',
       isGenericPick: p.id === generic.id,
-      reason: p.id === kept.id ? reasonFor(kept, candidates.filter((c) => c.id !== kept.id), state.profile) : undefined,
+      reason: isKept ? reasonFor(p, others, state.profile) : undefined,
     };
   }
   const scenes = [...state.scenes];
   scenes[sceneIdx] = {
     ...scene,
-    keptIds: [kept.id],
+    keptIds,
     genericKeptIds: [generic.id],
-    uncertainIds: mock.pool.filter((id) => id !== kept.id).slice(0, mock.askCount),
+    uncertainIds: mock.pool.filter((id) => !keptIds.includes(id)).slice(0, mock.askCount),
   };
   return { ...state, photosById, scenes };
+}
+
+// Keep every photo that scores close to the best one (1 to MAX_KEEP photos),
+// skipping near-identical shots so the keepers are actually different.
+function pickKeepers(ranked: Photo[], score: (p: Photo) => number): Photo[] {
+  const best = score(ranked[0]);
+  const kept: Photo[] = [];
+  for (const p of ranked) {
+    if (kept.length >= MAX_KEEP) break;
+    if (kept.length > 0 && best - score(p) > KEEP_MARGIN) break;
+    if (kept.some((k) => isNearDuplicate(k, p))) continue;
+    kept.push(p);
+  }
+  return kept;
+}
+
+function isNearDuplicate(a: Photo, b: Photo): boolean {
+  if (!a.scores || !b.scores) return false;
+  const diff = Object.keys(a.scores).reduce(
+    (sum, k) => sum + Math.abs((a.scores![k] ?? 0) - (b.scores![k] ?? 0)),
+    0,
+  );
+  return diff <= NEAR_DUPLICATE_DIFF;
 }
 
 // Re-rank every scene that hasn't been reviewed, then point `review` at the next question.

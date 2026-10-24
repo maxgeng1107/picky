@@ -17,7 +17,7 @@ c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion Peo
 | 项目骨架（Expo SDK 58、expo-router、TypeScript） | ✅ 完成 | Max |
 | 依赖：`expo-media-library`、`expo-image-manipulator`、`expo-notifications` | ✅ 已装 | Max |
 | 共享接口 `src/lib/types.ts` | ✅ 初版（按计划 v3 的接口约定） | Lingge 负责后续修改 |
-| 模拟数据 `src/mock/picky-mock.tsx`（含分差学习、按场景重新排序、复习流程） | ✅ 完成 | Max |
+| 模拟数据 `src/mock/picky-mock.tsx`（含分差学习、每个场景留 1–3 张、按场景重新排序、复习流程） | ✅ 完成 | Max |
 | **Today** 页：场景卡片、通用 app vs Picky 对比、Cloud Bin、Free up、Simulate tonight | ✅ 完成 | Max |
 | **Your call** 页：A vs B、四个按钮、各维度分数对比、「Learned: …」提示 | ✅ 完成 | Max |
 | **Your taste** 页：证据条、状态标签、总结句、Reset | ✅ 完成 | Max |

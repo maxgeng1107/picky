@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
@@ -73,18 +73,15 @@ export default function ReviewScreen() {
 
 // Shows "face looks smaller ↑ · facing the camera ↓" for a moment after each answer.
 function useLearnedToast(criteria: Criterion[]) {
-  const [message, setMessage] = useState<string | null>(null);
-  const prev = useRef(criteria);
+  // the toast belongs to one profile update; hide it 2.5 s after that update
+  const [dismissed, setDismissed] = useState<Criterion[] | null>(null);
   useEffect(() => {
-    if (prev.current === criteria) return;
-    prev.current = criteria;
-    const changed = criteria.filter((c) => c.lastChange);
-    if (changed.length === 0) return;
-    setMessage(changed.map((c) => `${c.name} ${c.lastChange === 'down' ? '↓' : '↑'}`).join(' · '));
-    const t = setTimeout(() => setMessage(null), 2500);
+    const t = setTimeout(() => setDismissed(criteria), 2500);
     return () => clearTimeout(t);
   }, [criteria]);
-  if (!message) return null;
+  const changed = criteria.filter((c) => c.lastChange);
+  if (changed.length === 0 || dismissed === criteria) return null;
+  const message = changed.map((c) => `${c.name} ${c.lastChange === 'down' ? '↓' : '↑'}`).join(' · ');
   return (
     <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.toast}>
       <ThemedText style={styles.toastText}>Learned: {message}</ThemedText>

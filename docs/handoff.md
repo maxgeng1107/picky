@@ -1,6 +1,6 @@
 # Picky 交接总结（c0mpiled-16 · 2026-10-24）
 
-> **最后更新：15:35**（GitHub 上是 `docs/handoff.md`，Max 的 Obsidian 里有同一份）
+> **最后更新：15:50**（GitHub 上是 `docs/handoff.md`，Max 的 Obsidian 里有同一份）
 >
 > **Picky：一个按你的标准挑自拍的 AI。** 每晚自动整理当天的自拍，每个场景留下你会选的那几张（值得 P、值得发的），其余备份到 Google Drive 的 Cloud Bin 并释放手机空间；拿不准时才发通知问你 A vs B，从你的选择里学会你真正在意什么（比如显脸小，而不是角度）。
 > Slogan：**"As picky as you are."** · Track 4（AI-Powered Consumer Products for 1 Billion People）
@@ -8,7 +8,7 @@
 
 ---
 
-## 1. 现在的状态（15:35）
+## 1. 现在的状态（15:50）
 
 | 事项 | 状态 |
 |---|---|
@@ -21,7 +21,8 @@
 | 本地通知 | ⏳ 代码写好了，还没在 iPhone 上确认 |
 | `server/`（Claude 打分接口） | ❌ 未开始 |
 | `src/lib/`（读相册、调服务器、真实数据） | ❌ 未开始 |
-| 每个场景留多张 + 只处理有人的照片 | ❌ 刚决定，mock 和规格还没改（见 §4） |
+| 每个场景留 1–3 张 | ✅ mock 已改（`pickKeepers`），场景卡片显示「Also kept」；规则已写进 `docs/backend-spec.md` |
+| 只处理今天的、有人的照片 | ✅ 规则已写进 `docs/backend-spec.md`（`TODAY_ONLY`、`noPerson`），等 Lingge 在 `src/lib` 实现 |
 | demo 照片（相册 Picky Demo） | ❌ 未拍 |
 | Google Drive | ❌ 建议先砍 |
 
@@ -89,7 +90,7 @@
 
 **现在 → 16:15（写代码）**
 1. **Max：** 在 iPhone 上确认通知（1 分钟）
-2. **Max（Claude Code）：** mock 改成每个场景留 1–3 张；把「只处理今天、只处理有人的照片」和「留多张」的规则写进 `docs/backend-spec.md`
+2. ✅ **Max（Claude Code）：** mock 改成每个场景留 1–3 张；「只处理今天、只处理有人的照片」和「留多张」的规则已写进 `docs/backend-spec.md`
 3. **Lingge 同意后，Max：** 写 `server/`：`/health`、`/api/select`（Claude Sonnet 5.5）、`USE_CACHE=1` 缓存、测试脚本
 4. **Lingge：** `src/lib/`：读 Picky Demo 相册、只取今天的照片、按时间分场景、压缩成 base64、调服务器、真实的 `usePicky`
 5. **Max：** 拍 demo 照片：8–10 个场景 × 5–6 张，场景之间的变化要交错（有的场景显脸小的是侧脸，有的是正脸 + 俯拍 + 2×），每个场景放 1 张闭眼或糊掉的；**跑 AI 之前两人各自写下每个场景会选哪几张**

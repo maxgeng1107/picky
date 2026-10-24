@@ -58,6 +58,19 @@ export function SceneCard({
 
       {main?.reason ? <ThemedText style={styles.reason}>{main.reason}</ThemedText> : null}
 
+      {differs && kept.length > 1 ? (
+        <View style={{ gap: Spacing.two }}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Also kept
+          </ThemedText>
+          <View style={styles.binRow}>
+            {kept.slice(1).map((p) => (
+              <Photo key={p.id} uri={p.uri} style={styles.alsoKept} badge={p.rescued ? 'Rescued' : undefined} />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {binned.length > 0 ? (
         <View style={{ gap: Spacing.two }}>
           <ThemedText type="small" themeColor="textSecondary">
@@ -85,6 +98,7 @@ const styles = StyleSheet.create({
   keptRow: { flexDirection: 'row', gap: Spacing.two },
   keptPhoto: { flex: 1, maxWidth: 260 },
   reason: { fontSize: 16, fontWeight: 600 },
-  binRow: { gap: Spacing.two },
+  binRow: { flexDirection: 'row', gap: Spacing.two },
+  alsoKept: { width: 96 },
   thumb: { width: 64 },
 });
