@@ -47,6 +47,8 @@ export interface Criterion {
 export interface TasteProfile {
   criteria: Criterion[];
   summary?: string;
+  /** Optional model used by the experimental pairwise ranker. */
+  preference?: import('./experimental/taste').PreferenceModel;
 }
 
 export type Answer = 'keepA' | 'replace' | 'keepBoth' | 'skip';

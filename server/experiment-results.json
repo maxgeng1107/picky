@@ -1,0 +1,610 @@
+{
+  "kind": "synthetic-only",
+  "seeds": 30,
+  "testPairsPerSeed": 400,
+  "limitations": [
+    "No VLM calls, human labels, or real photos. These are NOT product accuracy numbers.",
+    "Linear synthetic users match the new model assumptions and favor that model class.",
+    "Original counter uses six dimensions. matchedCounter uses the same eight features and cold-start fallback as the new ranker to isolate the learning-rule change.",
+    "20% label noise is applied only during training; holdout targets are latent deterministic preferences.",
+    "Correlated training is evaluated on independently varying features (deliberate distribution shift).",
+    "Selective threshold is an experimental score margin, not calibrated confidence or deletion authorization."
+  ],
+  "results": [
+    {
+      "regime": "linear-clean",
+      "feedback": 0,
+      "accuracy": 0.5110833333333333,
+      "originalCounter": 0.5034166666666667,
+      "matchedCounter": 0.5110833333333333,
+      "generic": 0.5110833333333333,
+      "accuracySD": 0.11523155722981962,
+      "mean95CI": [
+        0.4698482501556031,
+        0.5523184165110635
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "linear-clean",
+      "feedback": 5,
+      "accuracy": 0.7059166666666666,
+      "originalCounter": 0.6500833333333335,
+      "matchedCounter": 0.6744166666666668,
+      "generic": 0.5110833333333333,
+      "accuracySD": 0.06687121994902787,
+      "mean95CI": [
+        0.681987107932205,
+        0.7298462254011283
+      ],
+      "logLoss": 0.5806307871634036,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "linear-clean",
+      "feedback": 10,
+      "accuracy": 0.7701666666666667,
+      "originalCounter": 0.6843333333333335,
+      "matchedCounter": 0.7075833333333333,
+      "generic": 0.5110833333333333,
+      "accuracySD": 0.06827913465975576,
+      "mean95CI": [
+        0.7457332921234137,
+        0.7946000412099197
+      ],
+      "logLoss": 0.4720445557769867,
+      "coverage": 0.5566666666666665,
+      "selectiveAccuracy": 0.8851796407185629,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "linear-clean",
+      "feedback": 20,
+      "accuracy": 0.8559999999999998,
+      "originalCounter": 0.7317499999999999,
+      "matchedCounter": 0.7688333333333335,
+      "generic": 0.5110833333333333,
+      "accuracySD": 0.04602566750157479,
+      "mean95CI": [
+        0.8395299264076344,
+        0.8724700735923652
+      ],
+      "logLoss": 0.3617227545238376,
+      "coverage": 0.5634166666666666,
+      "selectiveAccuracy": 0.9646501996746043,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "linear-clean",
+      "feedback": 40,
+      "accuracy": 0.8995833333333334,
+      "originalCounter": 0.7621666666666665,
+      "matchedCounter": 0.8035833333333335,
+      "generic": 0.5110833333333333,
+      "accuracySD": 0.03251712634516043,
+      "mean95CI": [
+        0.8879472291117333,
+        0.9112194375549335
+      ],
+      "logLoss": 0.32394142177682617,
+      "coverage": 0.54925,
+      "selectiveAccuracy": 0.9925656197845547,
+      "retainedFeedback": 40
+    },
+    {
+      "regime": "noisy-feedback",
+      "feedback": 0,
+      "accuracy": 0.5031666666666665,
+      "originalCounter": 0.5225833333333334,
+      "matchedCounter": 0.5031666666666665,
+      "generic": 0.5031666666666665,
+      "accuracySD": 0.10295406854459448,
+      "mean95CI": [
+        0.4663250263905123,
+        0.5400083069428208
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "noisy-feedback",
+      "feedback": 5,
+      "accuracy": 0.6198333333333335,
+      "originalCounter": 0.5617500000000001,
+      "matchedCounter": 0.5690000000000001,
+      "generic": 0.5031666666666665,
+      "accuracySD": 0.10777717541404529,
+      "mean95CI": [
+        0.5812657664298038,
+        0.6584009002368632
+      ],
+      "logLoss": 0.7693624167690043,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "noisy-feedback",
+      "feedback": 10,
+      "accuracy": 0.6515,
+      "originalCounter": 0.60525,
+      "matchedCounter": 0.6151666666666668,
+      "generic": 0.5031666666666665,
+      "accuracySD": 0.10122652984681232,
+      "mean95CI": [
+        0.6152765515074882,
+        0.6877234484925118
+      ],
+      "logLoss": 0.6991900398527588,
+      "coverage": 0.5570833333333334,
+      "selectiveAccuracy": 0.7183246073298429,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "noisy-feedback",
+      "feedback": 20,
+      "accuracy": 0.733,
+      "originalCounter": 0.6345000000000002,
+      "matchedCounter": 0.6566666666666666,
+      "generic": 0.5031666666666665,
+      "accuracySD": 0.08181507744023546,
+      "mean95CI": [
+        0.7037228505407414,
+        0.7622771494592586
+      ],
+      "logLoss": 0.5370333796927632,
+      "coverage": 0.4619166666666667,
+      "selectiveAccuracy": 0.8502615911961032,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "noisy-feedback",
+      "feedback": 40,
+      "accuracy": 0.7739166666666667,
+      "originalCounter": 0.67925,
+      "matchedCounter": 0.7214166666666666,
+      "generic": 0.5031666666666665,
+      "accuracySD": 0.07325170156118695,
+      "mean95CI": [
+        0.747703881910477,
+        0.8001294514228564
+      ],
+      "logLoss": 0.49114362135451894,
+      "coverage": 0.36016666666666663,
+      "selectiveAccuracy": 0.9275798241554836,
+      "retainedFeedback": 40
+    },
+    {
+      "regime": "subtle-clean-features",
+      "feedback": 0,
+      "accuracy": 0.5135,
+      "originalCounter": 0.5001666666666668,
+      "matchedCounter": 0.5135,
+      "generic": 0.5135,
+      "accuracySD": 0.11819329580147003,
+      "mean95CI": [
+        0.47120507228585407,
+        0.5557949277141458
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "subtle-clean-features",
+      "feedback": 5,
+      "accuracy": 0.6615000000000002,
+      "originalCounter": 0.5001666666666668,
+      "matchedCounter": 0.5135,
+      "generic": 0.5135,
+      "accuracySD": 0.07870886993787009,
+      "mean95CI": [
+        0.6333343926200685,
+        0.6896656073799319
+      ],
+      "logLoss": 0.670961879626771,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 3.8333333333333335
+    },
+    {
+      "regime": "subtle-clean-features",
+      "feedback": 10,
+      "accuracy": 0.7073333333333334,
+      "originalCounter": 0.5001666666666668,
+      "matchedCounter": 0.5135,
+      "generic": 0.5135,
+      "accuracySD": 0.0699566778914579,
+      "mean95CI": [
+        0.6822996576542074,
+        0.7323670090124593
+      ],
+      "logLoss": 0.6691851385232892,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 7.466666666666667
+    },
+    {
+      "regime": "subtle-clean-features",
+      "feedback": 20,
+      "accuracy": 0.7742500000000001,
+      "originalCounter": 0.5001666666666668,
+      "matchedCounter": 0.5135,
+      "generic": 0.5135,
+      "accuracySD": 0.054016081577299896,
+      "mean95CI": [
+        0.7549205934526882,
+        0.793579406547312
+      ],
+      "logLoss": 0.6657166433010873,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 15.033333333333333
+    },
+    {
+      "regime": "subtle-clean-features",
+      "feedback": 40,
+      "accuracy": 0.8313333333333331,
+      "originalCounter": 0.5001666666666668,
+      "matchedCounter": 0.5135,
+      "generic": 0.5135,
+      "accuracySD": 0.0392424676131333,
+      "mean95CI": [
+        0.8172905966470655,
+        0.8453760700196008
+      ],
+      "logLoss": 0.66493561327327,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 30.1
+    },
+    {
+      "regime": "subtle-noisy-features",
+      "feedback": 0,
+      "accuracy": 0.5022916666666668,
+      "originalCounter": 0.4979166666666666,
+      "matchedCounter": 0.5022916666666668,
+      "generic": 0.5022916666666668,
+      "accuracySD": 0.0421270186937432,
+      "mean95CI": [
+        0.4872167066329169,
+        0.5173666267004167
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "subtle-noisy-features",
+      "feedback": 5,
+      "accuracy": 0.5294166666666668,
+      "originalCounter": 0.4979166666666666,
+      "matchedCounter": 0.5022916666666668,
+      "generic": 0.5022916666666668,
+      "accuracySD": 0.03372482032193985,
+      "mean95CI": [
+        0.5173483947057518,
+        0.5414849386275817
+      ],
+      "logLoss": 0.712029834529941,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "subtle-noisy-features",
+      "feedback": 10,
+      "accuracy": 0.53625,
+      "originalCounter": 0.4979166666666666,
+      "matchedCounter": 0.5022916666666668,
+      "generic": 0.5022916666666668,
+      "accuracySD": 0.03368688223155653,
+      "mean95CI": [
+        0.5241953040103743,
+        0.5483046959896257
+      ],
+      "logLoss": 0.696290030762176,
+      "coverage": 0.012333333333333339,
+      "selectiveAccuracy": 0.6891891891891891,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "subtle-noisy-features",
+      "feedback": 20,
+      "accuracy": 0.5435,
+      "originalCounter": 0.4979166666666666,
+      "matchedCounter": 0.5022916666666668,
+      "generic": 0.5022916666666668,
+      "accuracySD": 0.03573489553112882,
+      "mean95CI": [
+        0.5307124318633066,
+        0.5562875681366933
+      ],
+      "logLoss": 0.6880583973274959,
+      "coverage": 0.0023333333333333335,
+      "selectiveAccuracy": 0.8214285714285714,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "subtle-noisy-features",
+      "feedback": 40,
+      "accuracy": 0.56125,
+      "originalCounter": 0.4979166666666666,
+      "matchedCounter": 0.5022916666666668,
+      "generic": 0.5022916666666668,
+      "accuracySD": 0.03655858548157727,
+      "mean95CI": [
+        0.5481676782000228,
+        0.5743323217999773
+      ],
+      "logLoss": 0.6810769201153529,
+      "coverage": 0.0003333333333333333,
+      "selectiveAccuracy": 1,
+      "retainedFeedback": 39.93333333333333
+    },
+    {
+      "regime": "correlated-training",
+      "feedback": 0,
+      "accuracy": 0.50625,
+      "originalCounter": 0.46341666666666664,
+      "matchedCounter": 0.50625,
+      "generic": 0.50625,
+      "accuracySD": 0.1294979529860847,
+      "mean95CI": [
+        0.4599097526658682,
+        0.5525902473341318
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "correlated-training",
+      "feedback": 5,
+      "accuracy": 0.6984999999999999,
+      "originalCounter": 0.6502499999999999,
+      "matchedCounter": 0.6584999999999999,
+      "generic": 0.50625,
+      "accuracySD": 0.08261251470695524,
+      "mean95CI": [
+        0.6689374912796785,
+        0.7280625087203213
+      ],
+      "logLoss": 0.6007164852124744,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "correlated-training",
+      "feedback": 10,
+      "accuracy": 0.777,
+      "originalCounter": 0.6780000000000003,
+      "matchedCounter": 0.6925833333333334,
+      "generic": 0.50625,
+      "accuracySD": 0.07203447450520745,
+      "mean95CI": [
+        0.7512227943517051,
+        0.8027772056482949
+      ],
+      "logLoss": 0.4670979895299496,
+      "coverage": 0.5681666666666666,
+      "selectiveAccuracy": 0.8851569375183338,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "correlated-training",
+      "feedback": 20,
+      "accuracy": 0.8214999999999999,
+      "originalCounter": 0.7109166666666664,
+      "matchedCounter": 0.7431666666666668,
+      "generic": 0.50625,
+      "accuracySD": 0.05828585917107462,
+      "mean95CI": [
+        0.8006426731636428,
+        0.842357326836357
+      ],
+      "logLoss": 0.40598666232081526,
+      "coverage": 0.5539166666666665,
+      "selectiveAccuracy": 0.9336542801263727,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "correlated-training",
+      "feedback": 40,
+      "accuracy": 0.8663333333333333,
+      "originalCounter": 0.7212499999999998,
+      "matchedCounter": 0.7756666666666668,
+      "generic": 0.50625,
+      "accuracySD": 0.05159412779559807,
+      "mean95CI": [
+        0.8478706118160771,
+        0.8847960548505894
+      ],
+      "logLoss": 0.359507491664602,
+      "coverage": 0.5459166666666667,
+      "selectiveAccuracy": 0.9700809036788277,
+      "retainedFeedback": 40
+    },
+    {
+      "regime": "nonlinear-taste",
+      "feedback": 0,
+      "accuracy": 0.5055833333333333,
+      "originalCounter": 0.5040833333333332,
+      "matchedCounter": 0.5055833333333333,
+      "generic": 0.5055833333333333,
+      "accuracySD": 0.023495077743240597,
+      "mean95CI": [
+        0.49717572774073043,
+        0.5139909389259361
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "nonlinear-taste",
+      "feedback": 5,
+      "accuracy": 0.5000000000000001,
+      "originalCounter": 0.5020833333333333,
+      "matchedCounter": 0.4947499999999999,
+      "generic": 0.5055833333333333,
+      "accuracySD": 0.026277694750097662,
+      "mean95CI": [
+        0.4905966476997426,
+        0.5094033523002577
+      ],
+      "logLoss": 1.033014255668836,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "nonlinear-taste",
+      "feedback": 10,
+      "accuracy": 0.4975833333333333,
+      "originalCounter": 0.49458333333333326,
+      "matchedCounter": 0.4915833333333332,
+      "generic": 0.5055833333333333,
+      "accuracySD": 0.02269060390882373,
+      "mean95CI": [
+        0.48946360500520525,
+        0.5057030616614614
+      ],
+      "logLoss": 1.0019484507023146,
+      "coverage": 0.5271666666666666,
+      "selectiveAccuracy": 0.49952576667720516,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "nonlinear-taste",
+      "feedback": 20,
+      "accuracy": 0.5025000000000001,
+      "originalCounter": 0.4971666666666666,
+      "matchedCounter": 0.49374999999999986,
+      "generic": 0.5055833333333333,
+      "accuracySD": 0.027045619187612988,
+      "mean95CI": [
+        0.4928218494689766,
+        0.5121781505310236
+      ],
+      "logLoss": 0.8827206768641378,
+      "coverage": 0.38866666666666666,
+      "selectiveAccuracy": 0.4963550600343053,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "nonlinear-taste",
+      "feedback": 40,
+      "accuracy": 0.5113333333333333,
+      "originalCounter": 0.5104166666666666,
+      "matchedCounter": 0.507,
+      "generic": 0.5055833333333333,
+      "accuracySD": 0.022900961180450614,
+      "mean95CI": [
+        0.5031383296223058,
+        0.5195283370443609
+      ],
+      "logLoss": 0.7773275964286083,
+      "coverage": 0.19716666666666663,
+      "selectiveAccuracy": 0.49535080304311074,
+      "retainedFeedback": 40
+    },
+    {
+      "regime": "unobserved-taste",
+      "feedback": 0,
+      "accuracy": 0.5033333333333333,
+      "originalCounter": 0.49949999999999994,
+      "matchedCounter": 0.5033333333333333,
+      "generic": 0.5033333333333333,
+      "accuracySD": 0.02516611478423584,
+      "mean95CI": [
+        0.494327754815301,
+        0.5123389118513656
+      ],
+      "logLoss": 0.6931471805599471,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 0
+    },
+    {
+      "regime": "unobserved-taste",
+      "feedback": 5,
+      "accuracy": 0.4990833333333334,
+      "originalCounter": 0.5006666666666666,
+      "matchedCounter": 0.50225,
+      "generic": 0.5033333333333333,
+      "accuracySD": 0.030039365934505437,
+      "mean95CI": [
+        0.48833388428748586,
+        0.5098327823791808
+      ],
+      "logLoss": 1.0307236525933672,
+      "coverage": 0,
+      "selectiveAccuracy": null,
+      "retainedFeedback": 5
+    },
+    {
+      "regime": "unobserved-taste",
+      "feedback": 10,
+      "accuracy": 0.49550000000000005,
+      "originalCounter": 0.49624999999999997,
+      "matchedCounter": 0.4930833333333334,
+      "generic": 0.5033333333333333,
+      "accuracySD": 0.022963614397713977,
+      "mean95CI": [
+        0.4872825761231142,
+        0.5037174238768859
+      ],
+      "logLoss": 0.9956327421801938,
+      "coverage": 0.52375,
+      "selectiveAccuracy": 0.4972155926809865,
+      "retainedFeedback": 10
+    },
+    {
+      "regime": "unobserved-taste",
+      "feedback": 20,
+      "accuracy": 0.4975833333333333,
+      "originalCounter": 0.4996666666666666,
+      "matchedCounter": 0.4979166666666666,
+      "generic": 0.5033333333333333,
+      "accuracySD": 0.021690250206555673,
+      "mean95CI": [
+        0.48982157698017303,
+        0.5053450896864936
+      ],
+      "logLoss": 0.8569937505415425,
+      "coverage": 0.3544999999999999,
+      "selectiveAccuracy": 0.5082275505406676,
+      "retainedFeedback": 20
+    },
+    {
+      "regime": "unobserved-taste",
+      "feedback": 40,
+      "accuracy": 0.5070833333333333,
+      "originalCounter": 0.5054999999999998,
+      "matchedCounter": 0.5025833333333335,
+      "generic": 0.5033333333333333,
+      "accuracySD": 0.02771532730847846,
+      "mean95CI": [
+        0.49716553082907816,
+        0.5170011358375884
+      ],
+      "logLoss": 0.7630616968458795,
+      "coverage": 0.16491666666666666,
+      "selectiveAccuracy": 0.5103587670540677,
+      "retainedFeedback": 40
+    }
+  ]
+}
