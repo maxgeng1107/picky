@@ -1,5 +1,20 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Team & ownership (hackathon — read first)
+
+Two people push to `main`. To avoid merge conflicts, each person edits **only their own folders**:
+
+| Who | Owns | Never edit |
+|---|---|---|
+| **Max** (UI) | `src/app/`, `src/components/`, `src/mock/`, `src/hooks/`, `src/constants/` | `src/lib/`, `server/` |
+| **Lingge** (logic + server) | `src/lib/` (incl. `types.ts`), `server/`, `package.json` / lockfile | `src/app/`, `src/components/`, `src/mock/` |
+
+- `src/lib/types.ts` is the shared contract. Only Lingge changes it, and tells Max.
+- Only Lingge installs packages (`npx expo install …` for the app, `npm i …` inside `server/`).
+- The UI gets all data from `usePicky()` in `src/hooks/use-picky.ts` (currently the mock). Swapping to the real implementation is a one-line change in that file.
+- Backend spec (API contract, prompts, learning rules, Drive): `docs/backend-spec.md`.
+- Never commit `.env` or `server/.env`. Before every push: `git status`, then `git pull --rebase`, then `git push`. Never `git push --force`.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
