@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { Study, type StudyScene } from './study';
 import { createStudyApp } from './real-experiment';
-import { KEYS } from '../src/lib/experimental/features';
+import { KEYS } from '../src/lib/personalization/features';
 
 const row = (value: number) => Object.fromEntries(KEYS.map((k) => [k, k === 'face_small' ? value : 3]));
 function scene(id: string, split: 'train' | 'test'): StudyScene {

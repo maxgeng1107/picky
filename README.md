@@ -1,123 +1,85 @@
 # Picky — as picky as you are
 
-c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion People
+Picky 从你的 A/B 选择中学习，在自己的肖像照片里推荐你更喜欢的那几张。VLM 提取可见属性，本地个人排序器学习偏好；VLM 权重不更新。
 
-每晚自动整理当天的自拍：每个场景留下**你自己**会选的那一两张（值得 P、值得发的），其余备份到 Google Drive 的 Cloud Bin 并释放手机空间。拿不准时才发通知问你一次 A vs B，从你的选择里学会你真正在意什么（比如「显脸小」，而不是「角度」）。
+## 当前状态
 
-**原则：Claude 负责打分，代码负责计数。** Claude（视觉模型）每个场景调用一次，给照片在固定的维度上打 1–5 分；学习和挑选都是本地代码，所以每次回答 A vs B 后面板都是即时更新的。
+- Today / Your call / Your taste 页面、当天相册读取、时间分组、前台新照片检测和本地提醒已实现。
+- 手机默认使用个人 pairwise ranker，偏好和已处理照片 ID 保存到设备，重新挑选和重启保留；损坏的主快照可恢复到上一份备份。Reset 清空两份快照。
+- 手机 API 和真人实验使用相同的固定属性、VLM 提示词和响应校验。允许小数、并列和 null；不强行把每批最好/最差拉成 5/1。
+- 原图保留在手机上。`binned` 表示未推荐；当前没有 Drive 备份，也没有删除操作。
+- 真人盲选实验、训练/测试场景隔离、学习曲线和冻结的旧计数器基线已实现。
+- 27 项回归测试、完整类型检查、lint、Web/server 导出和 iOS JS 导出已通过。本次未运行付费 VLM 请求或 iPhone 真机测试；没有真人准确率结论。
 
-> 最后更新：10/24 15:30 · 截止提交 18:30（18:10 前交）
+## 启动手机应用
 
----
-
-## 当前进度
-
-| 部分 | 状态 | 负责人 |
-|---|---|---|
-| 项目骨架（Expo SDK 58、expo-router、TypeScript） | ✅ 完成 | Max |
-| 依赖：`expo-media-library`、`expo-image-manipulator`、`expo-notifications` | ✅ 已装 | Max |
-| 共享接口 `src/lib/types.ts` | ✅ 初版（按计划 v3 的接口约定） | Lingge 负责后续修改 |
-| 模拟数据 `src/mock/picky-mock.tsx`（含分差学习、每个场景留 1–3 张、按场景重新排序、复习流程） | ✅ 完成 | Max |
-| **Today** 页：场景卡片、通用 app vs Picky 对比、Cloud Bin、Free up、Simulate tonight | ✅ 完成 | Max |
-| **Your call** 页：A vs B、四个按钮、各维度分数对比、「Learned: …」提示 | ✅ 完成 | Max |
-| **Your taste** 页：证据条、状态标签、总结句、Reset | ✅ 完成 | Max |
-| 本地通知（模拟夜间整理 5 秒后弹出，点开进入 Your call） | ✅ 已写 · ⏳ 待在 iPhone 上确认 | Max |
-| 在 iPhone 上用 Expo Go 跑通 | ✅ 通过 `--tunnel` 能打开（校园 Wi-Fi 会挡住局域网连接） | — |
-| Claude 打分接口 `src/app/api/select+api.ts`（Expo Router API route，跑在开发服务器里，带缓存） | ✅ 完成，已用真实调用测过 | Max |
-| `src/lib/`：读相册（今天、有人）、分场景、压缩、调接口、引擎 `taste.ts`、真实 `usePicky` | ✅ 完成 · ⏳ 等真照片在 iPhone 上测 | Max |
-| Google Drive 上传 + 删除 | ❌ 建议先砍，16:15 后有余力再补 | 待定 |
-| demo 照片（相册 **Picky Demo**） | ❌ 未拍 | Max |
-
-**下一个检查点：** 15:40 B（把模拟数据换成真实数据）→ 16:15 C（学习流程在手机上跑通）→ **16:45 停止加功能**
-
----
-
-## 怎么跑起来
-
-**真实数据需要两样东西：**
-1. 项目根目录的 `.env` 里有 `ANTHROPIC_API_KEY=...`（不进 git）。加完要重启 `npx expo start`。
-2. iPhone「照片」里有一个叫 **Picky Demo** 的相册，放**今天拍的**单人照。拍摄时间相隔超过 5 分钟就算一个新场景。
-
-手机上默认用真实数据；网页版（没有相册）自动用模拟数据。想在手机上也用模拟数据：`.env` 里加 `EXPO_PUBLIC_USE_MOCK=1`。
-
-**自动检测（不用按按钮）：** 打开 app、app 回到前台、或者 app 开着时相册有变化，Picky 都会检查有没有新照片。最后一张照片拍完后 **`IDLE_MINUTES`** 分钟没有再拍，就认为这一组拍完了，自动开始挑选。如果 app 在后台，会在那个时间点弹出一条预约好的通知「Done shooting?」。demo 默认 1 分钟，真产品是 60 分钟：在 `.env` 里设置 `EXPO_PUBLIC_IDLE_MINUTES=60`。iOS 不能在拍照的瞬间唤醒第三方 app，所以检测发生在 app 被打开、或者通知被点开的时候。Today 页上的 **Pick now** 可以立刻开始。
-
-Claude 的打分结果会缓存在 `.picky-cache/`（同一组照片不会重复花钱，现场网络不好也能演示）。
+使用 Node 24：
 
 ```bash
-git clone https://github.com/maxgeng1107/picky.git
-cd picky
-npm install
-npx expo start --tunnel   # 校园 Wi-Fi 下用 --tunnel；连同一个热点时用 npx expo start 就行
+npm ci
 ```
 
-用 iPhone 相机扫终端里的二维码，在 Expo Go 里打开。
+在本地根目录 `.env` 填写，勿提交：
 
-演示流程：**Today → Simulate tonight**（允许通知，5 秒内回到桌面）→ 点通知 → **Your call** 依次选「B replaces A」→「Keep A」→「B replaces A」→ **Your taste** 显示「face looks smaller：Confident 3/0」「facing the camera：Doesn't care」→ 回到 **Today**，第 3 个场景显示「A generic app keeps」vs「Picky keeps」。
-
-Taste 页底部的 **Reset** 可以重新开始演示。
-
----
-
-## 目录和分工
-
-**每个人只改自己的文件夹，这样 git 不会冲突。** 规则写在 [`AGENTS.md`](AGENTS.md) 里，Claude Code 和 Codex 都会自动读取。
-
-```
-src/
-  app/                 Max     页面（每个文件就是一个路由）
-    _layout.tsx                 Provider、通知点击 → Your call
-    index.tsx                   Today
-    review.tsx                  Your call（A vs B）
-    taste.tsx                   Your taste
-  components/          Max     app-tabs、picky/ui、picky/scene-card
-  constants/picky.ts   Max     颜色、状态文字
-  hooks/use-picky.ts   Max     ⭐ 唯一切换点：现在指向 mock，接入时改成 src/lib
-  mock/picky-mock.tsx  Max     模拟版 usePicky()，真实实现以它为参考
-  lib/                 Lingge  types.ts（共享接口）+ 真实逻辑
-  app/api/select+api.ts        Claude 打分接口（开发服务器上运行，密钥不进 app）
-docs/backend-spec.md           后端规格：API、prompt、维度、学习规则、Drive
-docs/handoff.md                交接总结：最新决定、待确认事项、下一步
+```dotenv
+ANTHROPIC_API_KEY=your-key
+# 可选：改成该 key 实际可用的视觉模型；默认沿用项目的 claude-opus-5-5
+ANTHROPIC_MODEL=claude-opus-5-5
+MAX_VLM_CALLS=60
 ```
 
-- 只有 Lingge 改 `src/lib/types.ts` 和装依赖，需要的话先说一声。
-- 每次 push 前：`git status`（确认没有 `.env`）→ `git pull --rebase` → `git push`。不要 `--force`。
-- 密钥只放在 `server/.env`（已在 `.gitignore` 里）。
-
----
-
-## 接入真实数据（检查点 B）
-
-`src/lib/use-picky.tsx` 要导出 `PickyProvider` 组件和 `usePicky()` hook，返回值 `{ state, actions }` 的结构和 mock 完全一样（见 `src/lib/types.ts`）。写好以后，只改一行：
-
-```ts
-// src/hooks/use-picky.ts
-export { PickyProvider, usePicky } from '@/lib/use-picky';
+```bash
+npx expo start --tunnel
 ```
 
-注意：`review.index` 从 0 开始；`answer()` 是同步更新 profile 的（不调 LLM）。
+iPhone 需允许照片权限，建议准备 `Picky Demo` 相册，放当天拍摄的单人照。若相册不存在，现有流程会从当天照片创建它。每次最多处理 120 张，每组最多 12 张，拍摄时间相隔超过 5 分钟另起一组。照片会发送到 Anthropic 进行视觉分析；原图保留。
 
----
+手机默认真实数据，Web 默认 mock；`EXPO_PUBLIC_USE_MOCK=1` 可在手机使用 mock。开发时 API 使用 Expo 的开发服务器，校园 Wi-Fi 受限可用 tunnel。安装包上线还需独立部署 API 并配置服务 origin。
 
-## 偏好列表（Claude 打分的维度）
+新照片检测发生在打开应用、回到前台或应用运行期间相册变化时；demo 默认 1 分钟无新照片后开始。`EXPO_PUBLIC_IDLE_MINUTES=60` 可改为 60 分钟。后台是预约提醒，不保证 iOS 在后台执行完整选片。失败运行不推进处理检查点，可以修复网络/配置后再试。
 
-| key | 显示名 | 类型 |
-|---|---|---|
-| `face_small` | face looks smaller | 美感 |
-| `jawline` | clean jawline | 美感 |
-| `big_eyes` | eyes look bigger | 美感 |
-| `facing_camera` | facing the camera | 风格（没有好坏） |
-| `smile_teeth` | big smile with teeth | 风格 |
-| `camera_high` | shot from slightly above | 风格 |
-| `lighting`、`expression` | 参与打分，不在面板上显示 | 美感 |
+## 进行真实用户实验
 
-每个维度怎么打分、学习规则（`DIFF_MIN = 2`）和状态判断见 [`docs/backend-spec.md`](docs/backend-spec.md)。
+```bash
+npm run experiment:real
+```
 
----
+打开 http://127.0.0.1:3002 ，按页面创建并选择以下目录：
 
-## 已知问题
+```text
+PickyStudy/
+  train/session-01/  （本次拍摄的 3–6 张相似照片）
+  train/session-02/
+  test/session-11/   （独立拍摄会话）
+  test/session-12/
+```
 
-- 校园 Wi-Fi 会挡住手机直连电脑，请用 `--tunnel` 或两台设备都连热点。
-- Expo Go 会提示 expo-notifications 的警告：那是关于 Android 远程推送的，我们只用 iOS 本地通知，可以忽略。
-- mock 里的照片是随机风景图，只是占位，接入真实相册后会被替换。
-- `npx tsc --noEmit` 会报 1 个错误，在模板自带的网页版 tab 按钮里（`src/components/app-tabs.web.tsx`）。只影响网页版的类型检查，不影响 iPhone 运行。
+建议 train / test 各至少 5 个独立场景；同一连拍不得跨两侧。每人固定一个选片用途，选择 A/B、明确无偏好或跳过。完成前隐藏模型答案，完成后展示新旧方法、0/5/10/20/40 条反馈的测试效果及重复选择一致率。可选额外一次 VLM 请求检查评分稳定性。
+
+图片预览留在浏览器；特征、哈希和真人选择自动保存在忽略的 `server/runs/`，也可下载 JSON。没有真实标签时，不把模拟数字当产品准确率。刷新页面暂不能继续未完成的图片预览流程。
+
+详细协议、字段及限制见 [server/README.md](server/README.md)，模拟压力实验见 [server/EXPERIMENTS.md](server/EXPERIMENTS.md)。
+
+## 验证
+
+```bash
+npm run test:preferences
+npm run lint
+npm run lint:backend
+npm run typecheck
+npx expo export --platform web
+npx expo export --platform ios --output-dir dist-ios
+```
+
+测试使用明确标记的 provider fixtures，不产生付费请求。真实 VLM、相册权限、本地通知、端到端拍照流程仍须真机验收。
+
+## 代码位置
+
+- `src/lib/use-picky.tsx`：真实数据流程、持久化、取消和处理检查点。
+- `src/lib/personalization/`：固定属性、个人排序器和非破坏性推荐引擎。
+- `src/lib/preferences.ts` / `scoring.ts`：快照格式、跨轮保留和响应校验。
+- `src/app/api/select+api.ts` / `server/vision.ts`：共用的 VLM 请求、内容缓存、超时和调用上限。
+- `server/study.ts` / `real-experiment.ts`：真实标签收集和独立测试。
+- `server/baseline.ts`：冻结于 `main@23f2b9f` 的旧计数器，避免比较时误用同一个新模型。
+
+仍待完成：真人效果评估、自动人脸局部图、按用途区分的个人档案、完整后台调度、Drive 备份和生产部署。当前是单用户单用途的线性模型；概率未校准，矛盾选择不等于用户不在乎。

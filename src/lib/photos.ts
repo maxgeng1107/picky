@@ -1,4 +1,5 @@
 // Read today's photos from the "Picky Demo" album, split them into scenes, and shrink them for Claude.
+import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as MediaLibrary from 'expo-media-library/legacy';
 
@@ -8,7 +9,8 @@ export const ALBUM_NAME = 'Picky Demo';
 export const TODAY_ONLY = true; // set to false if the demo photos weren't shot today
 export const SCENE_GAP_MIN = 5; // a gap longer than this starts a new scene
 // No new photo for this long = the shoot is over, so Picky curates. Product: 60. Demo default: 1.
-export const IDLE_MINUTES = Number(process.env.EXPO_PUBLIC_IDLE_MINUTES ?? 1);
+const idleMinutes = Number(process.env.EXPO_PUBLIC_IDLE_MINUTES ?? 1);
+export const IDLE_MINUTES = Number.isFinite(idleMinutes) && idleMinutes > 0 ? idleMinutes : 1;
 const MAX_PHOTOS_PER_SCENE = 12;
 
 function startOfToday() {
@@ -18,7 +20,7 @@ function startOfToday() {
 }
 
 // Cheap check used for auto-detect: capture times of today's photos (album if it exists, else the library).
-export async function peekTodaysPhotoTimes(): Promise<number[]> {
+export async function peekTodaysPhotos(): Promise<{ id: string; takenAt: number }[]> {
   const perm = await MediaLibrary.requestPermissionsAsync();
   if (!perm.granted) return [];
   const album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
@@ -29,7 +31,7 @@ export async function peekTodaysPhotoTimes(): Promise<number[]> {
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
     first: 300,
   });
-  return page.assets.map((a) => a.creationTime);
+  return page.assets.map((a) => ({ id: a.id, takenAt: a.creationTime }));
 }
 
 export function onLibraryChange(listener: () => void) {
@@ -65,6 +67,7 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
     first: 300,
   });
   const assets = [...page.assets].sort((a, b) => a.creationTime - b.creationTime);
+  if (page.hasNextPage || assets.length > 120) throw new Error('This demo supports 120 photos per run. Move a smaller set into Picky Demo.');
   if (assets.length === 0) {
     throw new Error(
       TODAY_ONLY ? `No photos taken today in "${ALBUM_NAME}".` : `The "${ALBUM_NAME}" album is empty.`,
@@ -105,15 +108,20 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
   return { photosById, scenes };
 }
 
-// ~512 px wide JPEG as base64 — small enough to send a whole scene to Claude in one request.
+// Preserve fine detail without upscaling; bound the long edge, not only portrait width.
 export async function toBase64(uri: string): Promise<string> {
-  const image = await ImageManipulator.manipulate(uri).resize({ width: 512 }).renderAsync();
-  const result = await image.saveAsync({ base64: true, compress: 0.7, format: SaveFormat.JPEG });
-  if (!result.base64) throw new Error('Could not read a photo');
-  return result.base64;
-}
-
-export async function deleteFromPhone(ids: PhotoId[]): Promise<boolean> {
-  if (ids.length === 0) return true;
-  return MediaLibrary.deleteAssetsAsync(ids);
+  const context = ImageManipulator.manipulate(uri);
+  const references: { release(): void }[] = [];
+  try {
+    const original = await context.renderAsync(); references.push(original);
+    const scale = Math.min(1, 1568 / Math.max(original.width, original.height));
+    context.resize({ width: Math.max(1, Math.round(original.width * scale)), height: Math.max(1, Math.round(original.height * scale)) });
+    const image = await context.renderAsync(); references.push(image);
+    const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
+    if (!result.base64) throw new Error('Could not read a photo');
+    if (result.uri !== uri) {
+      try { new File(result.uri).delete(); } catch { /* Cache cleanup failure cannot invalidate encoding. */ }
+    }
+    return result.base64;
+  } finally { references.forEach((ref) => ref.release()); context.release(); }
 }

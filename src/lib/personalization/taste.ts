@@ -54,7 +54,7 @@ function appendComparison(history: Comparison[], comparison: Comparison): Compar
   const x = difference(comparison.a, comparison.b);
   // A nearly unobservable difference should not manufacture preference evidence.
   if (Math.max(...x.map(Math.abs)) < 0.125) return history;
-  const samePair = (h: Comparison) => h.sceneId === comparison.sceneId &&
+  const samePair = (h: Comparison) =>
     [h.aId, h.bId].sort().join('\0') === [comparison.aId, comparison.bId].sort().join('\0');
   return [...history.filter((h) => h.id !== comparison.id && !samePair(h)), comparison].slice(-300);
 }
@@ -65,7 +65,7 @@ export function score(model: PreferenceModel, scores: Scores): number {
   return model.history.length ? dot(model.weights, KEYS.map((k) => normalized(scores[k]) ?? 0)) : genericScore(scores);
 }
 export function profileFor(model: PreferenceModel, previous?: TasteProfile): TasteProfile {
-  const criteria = DIMENSIONS.map((d, i) => {
+  const criteria = DIMENSIONS.slice(0, 6).map((d, i) => {
     let support = 0; let against = 0;
     for (const h of model.history) {
       if (h.target === 0.5) continue;

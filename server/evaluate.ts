@@ -1,9 +1,9 @@
 /** Evaluate saved, human-labelled comparisons. No photos, network, or test-label updates. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { KEYS, FEATURE_VERSION } from '../src/lib/experimental/features';
-import { difference, emptyModel, genericScore, observe, probability, score, type Comparison } from '../src/lib/experimental/taste';
-import { validScores } from '../src/lib/experimental/selection';
+import { KEYS, FEATURE_VERSION } from '../src/lib/personalization/features';
+import { difference, emptyModel, genericScore, observe, probability, score, type Comparison } from '../src/lib/personalization/taste';
+import { validScores } from '../src/lib/personalization/selection';
 export interface EvaluationData { featureVersion: string; train: Comparison[]; test: Comparison[] }
 export function evaluate(data: EvaluationData) {
   if (data.featureVersion !== FEATURE_VERSION || !Array.isArray(data.train) || !Array.isArray(data.test) || !data.test.length)

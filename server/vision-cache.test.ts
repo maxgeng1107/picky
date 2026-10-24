@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { observePhotos, PROMPT, VisionError } from './vision';
+import { FEATURE_VERSION, KEYS } from '../src/lib/personalization/features';
+
+test('disk cache validation, in-flight deduplication, concurrency cap and spend cap work together', { timeout: 5000 }, async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'picky-cache-'));
+  const keys = ['LLM_API_KEY', 'ANTHROPIC_MODEL', 'USE_CACHE', 'VISION_CACHE_DIR', 'MAX_VLM_CALLS'] as const;
+  const previous = Object.fromEntries(keys.map((k) => [k, process.env[k]])); const oldFetch = globalThis.fetch;
+  t.after(async () => { globalThis.fetch = oldFetch; for (const k of keys) { if (previous[k] === undefined) delete process.env[k]; else process.env[k] = previous[k]; } await rm(directory, { recursive: true, force: true }); });
+  process.env.LLM_API_KEY = 'fixture-key'; process.env.ANTHROPIC_MODEL = 'fixture-model'; process.env.VISION_CACHE_DIR = directory;
+  process.env.USE_CACHE = '1'; process.env.MAX_VLM_CALLS = '5';
+  const photo = (id: string) => [{ id, imageBase64: '/9j/' }];
+  const observation = (id: string) => ({ label: 'fixture', people: { [id]: true }, gated: [], scores: { [id]: Object.fromEntries(KEYS.map((k) => [k, 3])) } });
+  const filename = (id: string) => path.join(directory, createHash('sha256').update(JSON.stringify(['fixture-model', FEATURE_VERSION, PROMPT, photo(id)])).digest('hex')+'.json');
+  await writeFile(filename('cached'), JSON.stringify(observation('cached')));
+  globalThis.fetch = async () => { throw new Error('A valid cache must not call the provider.'); };
+  assert.equal((await observePhotos(photo('cached'))).scores.cached.face_small, 3);
+  await writeFile(filename('fresh'), '{corrupt');
+  let calls = 0; let release!: (value: Response) => void; let started!: () => void;
+  const entered = new Promise<void>((resolve) => { started = resolve; });
+  globalThis.fetch = async () => { calls++; started(); return new Promise<Response>((resolve) => { release = resolve; }); };
+  const first = observePhotos(photo('fresh')); await entered;
+  const duplicate = observePhotos(photo('fresh'));
+  await assert.rejects(observePhotos(photo('concurrent')), (e: unknown) => e instanceof VisionError && e.status === 429);
+  release(Response.json({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(observation('fresh')) }] }));
+  assert.deepEqual(await first, await duplicate); assert.equal(calls, 1);
+  const disk = await readFile(filename('fresh'), 'utf8');
+  assert.ok(!disk.includes('imageBase64') && !disk.includes('fixture-key')); assert.equal(JSON.parse(disk).scores.fresh.face_small, 3);
+  process.env.MAX_VLM_CALLS = '1';
+  await assert.rejects(observePhotos(photo('over-budget')), (e: unknown) => e instanceof VisionError && e.status === 503);
+  assert.equal((await observePhotos(photo('fresh'))).scores.fresh.face_small, 3); assert.equal(calls, 1);
+});

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DIMENSIONS, KEYS } from '../src/lib/experimental/features';
-import { emptyModel, observe, probability, profileFor, restoreModel, difference, type Comparison } from '../src/lib/experimental/taste';
-import { answerReview, startReview } from '../src/lib/experimental/engine';
-import { challengers, rankPhotos } from '../src/lib/experimental/selection';
+import { DIMENSIONS, KEYS } from '../src/lib/personalization/features';
+import { emptyModel, observe, probability, profileFor, restoreModel, difference, type Comparison } from '../src/lib/personalization/taste';
+import { answerReview, startReview } from '../src/lib/personalization/engine';
+import { challengers, rankPhotos } from '../src/lib/personalization/selection';
 import { parseObservation, validatePhotos, PROMPT } from './vision';
-import type { Photo, Scores, Scene } from '../src/lib/experimental/types';
+import type { Photo, Scores, Scene } from '../src/lib/personalization/types';
 
 const row = (values: Scores = {}): Scores => ({ ...Object.fromEntries(KEYS.map((k) => [k, 3])), ...values });
 const comparison = (id: string, a = row({ face_small: 5 }), b = row({ face_small: 1 })): Comparison =>
@@ -79,7 +79,7 @@ test('identical candidates do not generate useless questions', () => {
   assert.equal(state.review, null); assert.equal(state.scenes[0].keptIds.length, 3);
 });
 test('vision parser rejects fabricated IDs and invalid/missing attributes', () => {
-  const valid = { label: 'test', gated: [], scores: { p: row() } };
+  const valid = { label: 'test', people: { p: true }, gated: [], scores: { p: row() } };
   assert.equal(parseObservation(JSON.stringify(valid), ['p']).scores.p.face_small, 3);
   for (const bad of [{ ...valid, gated: ['foreign'] }, { ...valid, scores: { p: { face_small: 5 } } },
     { ...valid, scores: { p: row({ face_small: 10 }) } }]) assert.throws(() => parseObservation(JSON.stringify(bad), ['p']));

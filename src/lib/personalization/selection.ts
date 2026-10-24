@@ -28,7 +28,8 @@ export function curatedScene(scene: Scene, photosById: Record<string, Photo>, mo
   const keptIds = ranked.filter((p) => Math.max(...difference(ranked[0].scores!, p.scores!).map(Math.abs)) < 0.125).map((p) => p.id);
   // No-face, gated and wholly unknown photos stay outside the discard suggestions.
   keptIds.push(...scene.photoIds.filter((id) => !ranked.some((p) => p.id === id)));
-  const uncertainIds = challengers(ranked[0], ranked, model, new Set()).filter((p) => !keptIds.includes(p.id)).map((p) => p.id);
+  const seen = new Set(model.history.map((h) => pairKey(h.aId, h.bId)));
+  const uncertainIds = challengers(ranked[0], ranked, model, seen).filter((p) => !keptIds.includes(p.id)).map((p) => p.id);
   return { ...scene, keptIds, genericKeptIds: [generic.id], uncertainIds, reviewed: !uncertainIds.length };
 }
 export function validScores(raw: unknown): raw is Scores {

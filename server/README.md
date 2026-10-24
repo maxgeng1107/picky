@@ -1,17 +1,12 @@
 # Picky 第一版：固定 VLM + 个人成对偏好模型
 
-VLM 仅提取可见属性，不推断用户喜欢哪张。用户的明确二选一在本地训练带 L2 正则的 pairwise logistic ranker，VLM 权重不更新。这不是 VLM pretraining，也不是 RL。实现是可接入的后端/逻辑版本，尚未完成真机和真人准确率验收。
+VLM 仅提取可见属性，不推断用户喜欢哪张。用户的明确二选一在本地训练带 L2 正则的 pairwise logistic ranker，VLM 权重不更新。这不是 VLM pretraining，也不是 RL。手机已默认接入，尚未完成真机和真人准确率验收。
 
 ## 接入状态
 
-本补丁基于 `23f2b9f`，保留当前主分支的真实相册、Expo API route 和 UI 流程。Max 的 provider 原样迁到 `src/lib/use-picky-current.tsx`，原入口按环境变量选择实现；新偏好模型位于 `src/lib/experimental/`，共享接口只新增可选 preference。无需修改 `src/hooks/`。
+手机默认使用个人 pairwise ranker；无需额外环境开关，也不再维护两套手机 provider。偏好和已处理资产 ID 存在设备，下一轮和重启保留；有上一份快照恢复机制。UI hook 保持手机真实 / web mock 的切换。
 
-- 默认：继续当前主分支 provider，调用 Expo 的 `/api/select`。
-- 根目录 `.env` 添加 `EXPO_PUBLIC_PERSONAL_RANKER=1`：手机选择个人 pairwise ranker，调用下面独立的实验服务。需同时设置 `EXPO_PUBLIC_API_URL` 并重启 Expo。
-- `EXPO_PUBLIC_USE_MOCK=1` 或 web 仍由现有 UI hook 选择 mock。
-- 两个评分服务的提示词和缓存互不混用；实验版需要固定锚点，不能用当前主分支要求“强行拉开分差”的分数来验证细微差别。
-
-实验模式的分数是固定锚点；`binned` 只表示未推荐，不能理解为已经云备份、删除或释放空间。实验 provider 的 `freeUpSpace` / `rescue` 提示原图仍在，默认 provider 保留主分支现有行为。通知为前台处理完成后 5 秒的演示，不是后台整夜任务。可选 `TasteProfile.preference` 向后兼容现有 UI，UI 无需读取内部权重。
+手机 `src/app/api/select+api.ts` 和本地真人实验共用 `server/vision.ts` 的提示词、校验、缓存、超时和调用上限。原图保持不动，删除操作禁用。实验结果的 `currentMainCounterAccuracy` 字段指冻结的 `main@23f2b9f` 旧基线，并非这次升级后的手机引擎。
 
 ## 直接做真人实验（无需先接手机）
 
@@ -54,13 +49,15 @@ MAX_VLM_CALLS=60
 npm run server
 ```
 
-在根目录忽略的 `.env` 配置 `EXPO_PUBLIC_PERSONAL_RANKER=1` 和 `EXPO_PUBLIC_API_URL=http://YOUR_LAPTOP_LAN_IP:3001`，手机和电脑同一网络。为 iPhone 创建 `Picky Demo` 相册并加入不超过 120 张当天拍摄的单人肖像照片，允许照片访问，再运行 Expo 开发构建。只读取设备本地当天的照片。选择该功能会把这些图片发送到本地服务及 Anthropic；上线前 UI 应明确告知。设备端 resize JPEG 最长边 1568、质量 0.9；可能保留系统缓存文件，未实现临时文件清理。原始照片不会删除。
+手机应用只需根目录 `.env` 的服务端 key，由 Expo API route 提供评分，运行 `npx expo start --tunnel`。无需 EXPO_PUBLIC_PERSONAL_RANKER 或 EXPO_PUBLIC_API_URL。最多 120 张当天肖像，每个场景最多 12 张。图片发送 Anthropic 提取属性；本地只保存个人模型/比较特征和资产 ID，原图不删除。
+
+`npm run server` 仍提供一个可选的 3001 端口兼容接口，返回 scores/gated/ranking；它用于脚本实验，不是手机 API 的部署替代品。真人实验工具用 `npm run experiment:real`，端口 3002，UI 收集真实标签；两者不要混淆。
 
 ## 实现边界
 
-- 8 个固定属性定义在 `src/lib/experimental/features.ts`。允许并列、小数及 null，禁止每批强行把最好/最差拉到 5/1。`face_small` 指脸部轮廓，不把拍远了当脸更瘦。
+- 8 个固定属性定义在 `src/lib/personalization/features.ts`。允许并列、小数及 null，禁止每批强行把最好/最差拉到 5/1。`face_small` 指脸部轮廓，不把拍远了当脸更瘦。
 - 只有 keepA / replace 训练。keepBoth / skip 不代表审美相等，不训练。矛盾反馈不再被称为“你不在乎”；相同图片对覆盖旧反馈而不是重复加权。
-- 最多保留 300 条比较，特征版本不匹配则重置。用户偏好、特征和图片 ID 存在设备本地，不存图片内容；不做账户同步。
+- 最多保留 300 条比较，特征版本不匹配则重置。用户偏好、特征和图片 ID 存在设备本地，不存图片内容；有损坏恢复快照，不做账户同步。
 - 单个用户、单个用途的线性偏好模型；不保证能解释因果。没有人物识别、个人身份确认、场景条件模型、时间衰减或非线性交互项。
 - 时间间隔超过 5 分钟形成新场景；每批 8 张提特征。固定锚点只能降低跨批漂移，不能保证完全一致。分组可能误把不同主体放一起。
 - 服务支持可选 `faceBase64` 局部图，但客户端**尚未自动检测/裁剪人脸**。本版没有声称完整的“全图 + 人脸局部”细节识别。

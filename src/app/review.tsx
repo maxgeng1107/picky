@@ -39,7 +39,7 @@ export default function ReviewScreen() {
   const A = state.photosById[review.aId];
   const B = state.photosById[review.bId];
   const scene = state.scenes.find((s) => s.id === review.sceneId);
-  const answer = (a: Answer) => actions.answer(a);
+  const answer = (a: Answer) => actions.answer(a, state.review ?? undefined);
 
   return (
     <Screen
@@ -52,7 +52,7 @@ export default function ReviewScreen() {
         </View>
         <View style={styles.col}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            B · In Cloud Bin
+            B · Another original
           </ThemedText>
           <Photo uri={B.uri} />
         </View>
@@ -98,7 +98,7 @@ function ScoreCompare({ criteria, a, b }: { criteria: Criterion[]; a?: Scores; b
   if (!a || !b) return null;
   return (
     <Card>
-      <ThemedText type="smallBold">What Picky sees (1–5, within this scene)</ThemedText>
+      <ThemedText type="smallBold">Visible attributes (1–5; ties are allowed)</ThemedText>
       {criteria.map((c) => {
         const sa = a[c.key];
         const sb = b[c.key];

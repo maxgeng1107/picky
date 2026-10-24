@@ -46,7 +46,7 @@
 5. **共变不能解释原因。** 胜出照片同时脸更瘦、光更好时，不能断言用户选择是因为脸瘦。本版不输出确定的因果解释，也不把矛盾反馈称为“不在乎”。
 6. **主动提问效果未验证。** 当前只验证随机反馈流的学习能力，没有验证启发式挑选图片对能节省多少问题；还需同预算随机/主动提问 A/B。
 7. **偏好仍是单用户单用途。** 无身份隔离、情境条件化、偏好漂移；朋友圈、证件照、旅行留念不能假设共享权重。
-8. **真机效果尚未验收。** 当前主分支已有真实 provider，本补丁增加独立实验 provider，通过 `EXPO_PUBLIC_PERSONAL_RANKER=1` 启用。未进行 iPhone 真机、后台或备份/删除测试。服务测试只使用 transport fixtures；默认 provider 是原主分支实现。
+8. **真机效果尚未验收。** 手机默认使用新的个人排序器，并持久化偏好；手机和独立真人实验共用 VLM 评分服务。未进行 iPhone 真机或真人准确率测试，自动人脸局部图和完整后台处理仍未实现。服务协议测试使用明确的 fixtures。
 
 ## 验证及复现
 
@@ -59,8 +59,8 @@ npm run experiment:preferences
 npm run evaluate:preferences -- /absolute/path/to/human-labels.json
 ```
 
-17 个测试通过，覆盖学习迁移、顺序对称、重复去重、矛盾反馈、不确定保留、全 gated/混合 gated、持久化、解析校验、供应商失败/截断/缓存/调用预算、评估数据泄漏、真人实验盲选/持久化/重试/跨场景隔离。新增实验逻辑和 server 通过范围内类型检查及 lint。没有线上 VLM 测试。
+27 个测试通过，覆盖学习迁移、顺序对称、重复去重、矛盾反馈、不确定保留、全 gated/混合 gated、持久化、解析校验、供应商失败/截断/缓存/调用预算、评估数据泄漏、真人实验盲选/持久化/重试/跨场景隔离。新增实验逻辑和 server 通过范围内类型检查及 lint。没有线上 VLM 测试。
 
-新增实验逻辑与服务的范围内类型检查和 lint 通过。本机启动真人实验服务并读取页面返回 HTTP 200，页面脚本通过语法检查；HTTP 协议测试用 fixture VLM。全仓 `npx tsc --noEmit` 仍报原有 CSS 声明和 app-tabs.web.tsx ref 类型问题；`npm run lint` 仍报原有 use-color-scheme.web.ts effect 内同步 setState。当前环境没有 VLM key/模型配置或真人照片，未完成付费 API 调用或真人准确率验证。`npm run lint:backend` 为本次范围检查，不能替代全仓通过。
+完整 `npm run typecheck`、`npm run lint` 和 `npm run lint:backend` 通过；此前 CSS 声明、web tab ref 类型和 hydration effect 报错已修复。Web/server 导出和 iOS JS 导出通过。测试还覆盖跨轮偏好保留、损坏快照恢复、图片对跨场景去重、手机评分响应、请求大小限制、内容缓存、并发去重及调用上限。没有付费 VLM 调用、iPhone 真机或真人标签结果。
 
 机器结果见 [experiment-results.json](experiment-results.json)，实现见 [experiment.ts](experiment.ts)。真实数据格式和下一轮采样步骤见 [README.md](README.md)。下一步优先用同一个人的近重复照片、固定用途和按拍摄会话隔离的测试集验证“全图 vs 全图+局部图”的特征稳定性，再评估真人选择是否改善；在此之前不把模拟准确率写成产品指标。

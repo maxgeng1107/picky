@@ -1,7 +1,7 @@
 /** Human labels are the ground truth. No test label ever enters fitting. */
-import { FEATURE_VERSION, KEYS } from '../src/lib/experimental/features';
-import { difference, emptyModel, observe, score, type Comparison } from '../src/lib/experimental/taste';
-import { emptyProfile, learn, tasteScore, hasEvidence, genericScore as currentGeneric } from '../src/lib/taste';
+import { FEATURE_VERSION, KEYS } from '../src/lib/personalization/features';
+import { difference, emptyModel, observe, score, type Comparison } from '../src/lib/personalization/taste';
+import { emptyProfile, learn, tasteScore, hasEvidence, genericScore as currentGeneric } from './baseline';
 import { evaluate } from './evaluate';
 import type { Observation } from './vision';
 

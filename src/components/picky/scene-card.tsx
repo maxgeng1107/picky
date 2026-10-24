@@ -75,8 +75,8 @@ export function SceneCard({
         <View style={{ gap: Spacing.two }}>
           <ThemedText type="small" themeColor="textSecondary">
             {binned.every((p) => p.deleted)
-              ? `☁️ ${binned.length} backed up to Drive · removed from phone`
-              : `☁️ ${binned.length} in Cloud Bin`}
+              ? `${binned.length} marked removed`
+              : `${binned.length} not suggested · originals remain on your phone`}
           </ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.binRow}>
             {binned.map((p) => (

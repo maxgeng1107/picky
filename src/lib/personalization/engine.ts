@@ -5,7 +5,7 @@ import { emptyModel, observe, profileFor } from './taste';
 export function initialState(profile: TasteProfile = profileFor(emptyModel())): PickyState {
   return { photosById: {}, scenes: [], profile, review: null, busy: false, freedBytes: 0 };
 }
-function prepare(state: PickyState, index: number): PickyState {
+export function prepare(state: PickyState, index: number): PickyState {
   const model = state.profile.preference ?? emptyModel();
   const scenes = state.scenes.map((s) => s.reviewed ? s : curatedScene(s, state.photosById, model));
   const photosById = { ...state.photosById };
@@ -23,9 +23,10 @@ function prepare(state: PickyState, index: number): PickyState {
 export function startReview(photos: Photo[], scenes: Scene[], profile: TasteProfile): PickyState {
   return prepare({ ...initialState(profile), photosById: Object.fromEntries(photos.map((p) => [p.id, p])), scenes }, 0);
 }
-export function answerReview(state: PickyState, answer: Answer): PickyState {
+export function answerReview(state: PickyState, answer: Answer, expected?: NonNullable<PickyState['review']>): PickyState {
   if (!state.review) return state;
   const r = state.review;
+  if (expected && (r.sceneId !== expected.sceneId || r.aId !== expected.aId || r.bId !== expected.bId || r.index !== expected.index)) return state;
   const A = state.photosById[r.aId]; const B = state.photosById[r.bId];
   let model = state.profile.preference ?? emptyModel();
   if ((answer === 'keepA' || answer === 'replace') && A.scores && B.scores) {

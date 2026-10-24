@@ -3,8 +3,8 @@ import { createHash, randomUUID, randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Study, type Choice, type Split } from './study';
-import { observePhotos, PROMPT, validatePhotos, type InputPhoto, type Observation } from './vision';
-import { KEYS } from '../src/lib/experimental/features';
+import { observePhotos, PROMPT, validatePhotos, visionModel, type InputPhoto, type Observation } from './vision';
+import { KEYS } from '../src/lib/personalization/features';
 
 /** Fetch-style handler lets fixture tests cover the entire protocol without a paid API call. */
 export function createStudyApp(options: {
@@ -21,7 +21,7 @@ export function createStudyApp(options: {
     await rename(`${name}.tmp`, name);
   });
   const snapshot = () => ({ ...study!.dataset(), runId, participant: study!.participant, purpose: study!.purpose,
-    model: process.env.ANTHROPIC_MODEL, featurePromptSHA256: createHash('sha256').update(PROMPT).digest('hex'),
+    model: visionModel(), featurePromptSHA256: createHash('sha256').update(PROMPT).digest('hex'),
     savedAt: new Date().toISOString(), scenes: study!.scenes, questions: study!.questions, choices: study!.choices,
     repeatability, report: lastReport });
   const state = () => ({ question: study?.next ?? null, answered: study?.choices.length ?? 0, total: study?.questions.length ?? 0 });
@@ -32,7 +32,7 @@ export function createStudyApp(options: {
     if (request.method === 'GET' && url.pathname === '/') return new Response(await readFile(new URL('./study.html', import.meta.url)), {
       headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     if (request.method === 'GET' && url.pathname === '/api/config') return json({
-      keyConfigured: Boolean(process.env.LLM_API_KEY || process.env.ANTHROPIC_API_KEY), model: process.env.ANTHROPIC_MODEL ?? null });
+      keyConfigured: Boolean(process.env.LLM_API_KEY || process.env.ANTHROPIC_API_KEY), model: visionModel() ?? null });
     if (request.method === 'GET' && url.pathname === '/api/download' && study) {
       return new Response(JSON.stringify(snapshot(), null, 2), { headers: { 'content-type': 'application/json',
         'content-disposition': `attachment; filename="${runId}.json"`, 'cache-control': 'no-store' } });
@@ -92,7 +92,7 @@ export function createStudyApp(options: {
         study.answer(input as Choice); await persist(runId, snapshot()); return json(state());
       }
       if (url.pathname === '/api/report') {
-        const report = { ...study.report(), model: process.env.ANTHROPIC_MODEL, runId, repeatability };
+        const report = { ...study.report(), model: visionModel(), runId, repeatability };
         lastReport = report;
         await persist(runId, { ...snapshot(), report }); return json(report);
       }

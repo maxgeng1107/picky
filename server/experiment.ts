@@ -1,8 +1,8 @@
 /** Offline synthetic stress test. Does NOT run a VLM or measure human aesthetic accuracy. */
 import { writeFileSync } from 'node:fs';
-import { KEYS } from '../src/lib/experimental/features';
-import { difference, dot, emptyModel, genericScore, observe, probability, score, type Comparison } from '../src/lib/experimental/taste';
-import type { Scores } from '../src/lib/experimental/types';
+import { KEYS } from '../src/lib/personalization/features';
+import { difference, dot, emptyModel, genericScore, observe, probability, score, type Comparison } from '../src/lib/personalization/taste';
+import type { Scores } from '../src/lib/personalization/types';
 
 function rng(seed: number) { let n = seed >>> 0; return () => ((n = (1664525 * n + 1013904223) >>> 0) / 4294967296); }
 const clamp = (x: number) => Math.max(1, Math.min(5, x));

@@ -1,9 +1,9 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { observePhotos, validatePhotos } from './vision';
-import { rankPhotos } from '../src/lib/experimental/selection';
-import { emptyModel, genericScore, restoreModel } from '../src/lib/experimental/taste';
-import type { Photo } from '../src/lib/experimental/types';
+import { observePhotos, validatePhotos, VisionError } from './vision';
+import { rankPhotos } from '../src/lib/personalization/selection';
+import { emptyModel, genericScore, restoreModel } from '../src/lib/personalization/taste';
+import type { Photo } from '../src/lib/personalization/types';
 
 let busy = false;
 export const server = createServer(async (req, res) => {
@@ -33,7 +33,7 @@ export const server = createServer(async (req, res) => {
     const generic = [...ranked].sort((a, b) => genericScore(b.scores!) - genericScore(a.scores!));
     send(200, { ...observed, tasteKeep: ranked.slice(0, 1).map((p) => p.id), genericKeep: generic.slice(0, 1).map((p) => p.id),
       ranking: ranked.map((p) => p.id), uncertain: ranked.slice(1, 4).map((p) => p.id), reasons: {} });
-  } catch (error) { send(502, { error: error instanceof Error ? error.message : 'Vision request failed' }); }
+  } catch (error) { send(error instanceof VisionError ? error.status : 502, { error: error instanceof Error ? error.message : 'Vision request failed' }); }
   finally { busy = false; }
 });
 server.requestTimeout = 90_000;
