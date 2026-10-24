@@ -13,20 +13,33 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
   const perm = await MediaLibrary.requestPermissionsAsync();
   if (!perm.granted) throw new Error('Picky needs access to your photos (Settings → Expo Go → Photos → Full Access).');
 
-  const album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
-  if (!album) throw new Error(`No album called "${ALBUM_NAME}". Create it in Photos and add today's selfies.`);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const createdAfter = TODAY_ONLY ? startOfToday.getTime() : undefined;
+
+  let album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
+  if (!album) {
+    // No album yet: create it from today's photos (on iOS this adds references, nothing is copied).
+    // Photos without a person in them are still skipped later by the scoring step.
+    const today = await MediaLibrary.getAssetsAsync({
+      mediaType: MediaLibrary.MediaType.photo,
+      createdAfter: startOfToday.getTime(),
+      sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+      first: 300,
+    });
+    if (today.assets.length === 0) throw new Error('No photos taken today yet. Take a few selfies and try again.');
+    album = await MediaLibrary.createAlbumAsync(ALBUM_NAME, today.assets[0], false);
+    if (today.assets.length > 1) await MediaLibrary.addAssetsToAlbumAsync(today.assets.slice(1), album, false);
+  }
 
   const page = await MediaLibrary.getAssetsAsync({
     album,
     mediaType: MediaLibrary.MediaType.photo,
-    sortBy: [[MediaLibrary.SortBy.creationTime, true]],
+    createdAfter,
+    sortBy: [[MediaLibrary.SortBy.creationTime, false]],
     first: 300,
   });
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const assets = page.assets
-    .filter((a) => !TODAY_ONLY || a.creationTime >= startOfToday.getTime())
-    .sort((a, b) => a.creationTime - b.creationTime);
+  const assets = [...page.assets].sort((a, b) => a.creationTime - b.creationTime);
   if (assets.length === 0) {
     throw new Error(
       TODAY_ONLY ? `No photos taken today in "${ALBUM_NAME}".` : `The "${ALBUM_NAME}" album is empty.`,
