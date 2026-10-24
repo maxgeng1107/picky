@@ -1,11 +1,18 @@
 // The real usePicky(): today's photos from the "Picky Demo" album, scored by Claude via /api/select,
 // curated and learned by the engine in taste.ts. Same shape as src/mock/picky-mock.tsx.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 
 import { selectScene } from '@/lib/api';
-import { scheduleNightNotification } from '@/lib/notify';
-import { deleteFromPhone, loadTodaysScenes, toBase64 } from '@/lib/photos';
+import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from '@/lib/notify';
+import {
+  deleteFromPhone,
+  IDLE_MINUTES,
+  loadTodaysScenes,
+  onLibraryChange,
+  peekTodaysPhotoTimes,
+  toBase64,
+} from '@/lib/photos';
 import { advance, applyAnswer, applyRescue, emptyProfile } from '@/lib/taste';
 import type { PhotoId, PickyActions, PickyContextValue, PickyState } from '@/lib/types';
 
@@ -62,10 +69,23 @@ export function PickyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // auto-detect state: what's already curated, the pending idle notification and timer
+  const lastCuratedAt = useRef(0);
+  const running = useRef(false);
+  const idleNotificationId = useRef<string | null>(null);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkRef = useRef<() => Promise<void>>(async () => {});
+
   const simulateNight = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
     setBusy('Reading today’s photos…');
     try {
       const loaded = await loadTodaysScenes();
+      lastCuratedAt.current = Math.max(0, ...Object.values(loaded.photosById).map((p) => p.takenAt));
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+      await cancelNotification(idleNotificationId.current);
+      idleNotificationId.current = null;
       let next: PickyState = { ...initialState(), ...loaded, freedBytes: stateRef.current.freedBytes, busy: true };
       setState({ ...next, status: `Looking at ${next.scenes.length} scenes…` });
       // score all scenes in parallel; one Claude call per scene
@@ -81,12 +101,56 @@ export function PickyProvider({ children }: { children: ReactNode }) {
         next = { ...next, photosById, scenes: next.scenes.map((x) => (x.id === s.id ? scene : x)) };
       }
       next = { ...next, scenes: next.scenes.filter((s) => s.photoIds.length > 0) };
-      const curated = { ...advance(next, 0), busy: false, status: undefined };
+      const curated = { ...advance(next, 0), busy: false, status: undefined, watch: undefined };
       setState(curated);
       await scheduleNightNotification(curated);
     } catch (e) {
       setState((s) => ({ ...s, busy: false, status: undefined, error: errorText(e) }));
+    } finally {
+      running.current = false;
     }
+  }, []);
+
+  // New photos since the last curation? Wait until the shoot is over (no new photo for IDLE_MINUTES),
+  // then curate by itself. While Picky is in the background, a scheduled notification covers that moment.
+  const checkForNewPhotos = useCallback(async () => {
+    if (Platform.OS === 'web' || running.current) return;
+    try {
+      const fresh = (await peekTodaysPhotoTimes()).filter((t) => t > lastCuratedAt.current);
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+      if (fresh.length === 0) {
+        setState((s) => (s.watch ? { ...s, watch: undefined } : s));
+        return;
+      }
+      const lastPhotoAt = Math.max(...fresh);
+      const readyAt = lastPhotoAt + IDLE_MINUTES * 60 * 1000;
+      setState((s) => ({ ...s, watch: { newPhotos: fresh.length, lastPhotoAt, readyAt } }));
+      if (Date.now() >= readyAt) {
+        await simulateNight();
+        return;
+      }
+      idleNotificationId.current = await scheduleIdleNotification(readyAt, fresh.length, idleNotificationId.current);
+      idleTimer.current = setTimeout(() => void checkRef.current(), readyAt - Date.now() + 500);
+    } catch (e) {
+      setState((s) => ({ ...s, error: errorText(e) }));
+    }
+  }, [simulateNight]);
+
+  useEffect(() => {
+    checkRef.current = checkForNewPhotos;
+  }, [checkForNewPhotos]);
+
+  // check when the app opens, when it comes back to the foreground, and when the library changes
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void checkRef.current();
+    const appSub = AppState.addEventListener('change', (s) => s === 'active' && void checkRef.current());
+    const librarySub = onLibraryChange(() => void checkRef.current());
+    return () => {
+      appSub.remove();
+      librarySub.remove();
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+    };
   }, []);
 
   const freeUpSpace = useCallback(async () => {
@@ -128,7 +192,10 @@ export function PickyProvider({ children }: { children: ReactNode }) {
       answer: async (a) => setState((s) => applyAnswer(s, a)),
       freeUpSpace,
       rescue: (id) => setState((s) => applyRescue(s, id)),
-      reset: () => setState((s) => ({ ...initialState(), freedBytes: s.freedBytes })),
+      reset: () => {
+        lastCuratedAt.current = 0; // the next check treats today's photos as new again
+        setState((s) => ({ ...initialState(), freedBytes: s.freedBytes }));
+      },
     }),
     [loadAlbum, simulateNight, freeUpSpace],
   );

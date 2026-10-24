@@ -22,7 +22,10 @@ export default function ReviewScreen() {
       <Screen title="Your call" subtitle="Picky only asks when it isn't sure.">
         {toast}
         <Card style={styles.empty}>
-          <ThemedText style={styles.emptyTitle}>{done ? 'All caught up 🎉' : 'Nothing to review yet'}</ThemedText>
+          <ThemedText style={styles.emptyTitle}>
+            {state.busy ? 'Picky is picking…' : done ? 'All caught up 🎉' : 'Nothing to review yet'}
+          </ThemedText>
+          {state.busy && state.status ? <ThemedText themeColor="textSecondary">{state.status}</ThemedText> : null}
           <PickyButton
             label={done ? 'See what Picky learned' : 'Go to Today'}
             variant="outline"

@@ -40,6 +40,8 @@ c0mpiled-16 hackathon · Track 4: AI-Powered Consumer Products for 1 Billion Peo
 
 手机上默认用真实数据；网页版（没有相册）自动用模拟数据。想在手机上也用模拟数据：`.env` 里加 `EXPO_PUBLIC_USE_MOCK=1`。
 
+**自动检测（不用按按钮）：** 打开 app、app 回到前台、或者 app 开着时相册有变化，Picky 都会检查有没有新照片。最后一张照片拍完后 **`IDLE_MINUTES`** 分钟没有再拍，就认为这一组拍完了，自动开始挑选。如果 app 在后台，会在那个时间点弹出一条预约好的通知「Done shooting?」。demo 默认 1 分钟，真产品是 60 分钟：在 `.env` 里设置 `EXPO_PUBLIC_IDLE_MINUTES=60`。iOS 不能在拍照的瞬间唤醒第三方 app，所以检测发生在 app 被打开、或者通知被点开的时候。Today 页上的 **Pick now** 可以立刻开始。
+
 Claude 的打分结果会缓存在 `.picky-cache/`（同一组照片不会重复花钱，现场网络不好也能演示）。
 
 ```bash

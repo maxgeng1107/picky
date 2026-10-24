@@ -25,20 +25,29 @@ export default function TodayScreen() {
     </ThemedText>
   ) : null;
 
+  const watch =
+    state.watch && !state.busy ? (
+      <Card style={styles.watch}>
+        <ThemedText style={styles.watchTitle}>📷 Picky noticed {state.watch.newPhotos} new photos</ThemedText>
+        <ThemedText themeColor="textSecondary">
+          It picks once you stop shooting — around {formatTime(state.watch.readyAt)}, if no new photo comes in.
+        </ThemedText>
+        <PickyButton label="Pick now" variant="outline" onPress={actions.simulateNight} />
+      </Card>
+    ) : null;
+
   if (curated.length === 0) {
     return (
       <Screen title="Picky" subtitle="As picky as you are.">
         {notice}
+        {watch}
         <Card style={styles.empty}>
           <ThemedText style={styles.emptyTitle}>Nothing tidied yet</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
-            Every night while your phone charges, Picky keeps the photos you would keep and moves the rest to your
-            Cloud Bin. It only pings you when it needs your call.
+            Just take photos. When you stop shooting, Picky keeps the ones you would keep, moves the rest to your
+            Cloud Bin, and only pings you when it needs your call.
           </ThemedText>
-          <PickyButton label="Simulate tonight" onPress={actions.simulateNight} loading={state.busy} />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-            Demo: runs tonight&apos;s curation now, then sends the morning notification in 5 s.
-          </ThemedText>
+          {!state.watch ? <PickyButton label="Pick now" onPress={actions.simulateNight} loading={state.busy} /> : null}
         </Card>
       </Screen>
     );
@@ -47,6 +56,7 @@ export default function TodayScreen() {
   return (
     <Screen title="Today" subtitle="As picky as you are.">
       {notice}
+      {watch}
       <Pressable onPress={() => asks > 0 && router.push('/review')}>
         <View style={styles.banner}>
           <ThemedText style={styles.bannerTitle}>Picky tidied {photos.length} photos</ThemedText>
@@ -75,12 +85,19 @@ export default function TodayScreen() {
         <SceneCard key={scene.id} scene={scene} photosById={state.photosById} profile={state.profile} />
       ))}
 
-      <PickyButton label="Simulate tonight again" variant="ghost" onPress={actions.simulateNight} />
+      <PickyButton label="Pick again" variant="ghost" onPress={actions.simulateNight} />
     </Screen>
   );
 }
 
+function formatTime(ms: number) {
+  const d = new Date(ms);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 const styles = StyleSheet.create({
+  watch: { borderWidth: 2, borderColor: Accent },
+  watchTitle: { fontSize: 18, fontWeight: 700 },
   empty: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.three },
   emptyTitle: { fontSize: 22, fontWeight: 700 },
   center: { textAlign: 'center' },

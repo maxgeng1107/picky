@@ -5,7 +5,29 @@ import type { PickyState } from '@/lib/types';
 
 const MB = 1024 * 1024;
 
-// The "morning" notification after a (simulated) night of curation; tapping it opens Your call.
+// Fires when the shoot looks over (no new photo for IDLE_MINUTES) while Picky is in the background.
+// Re-armed every time a new photo shows up, so only the last one ever fires.
+export async function scheduleIdleNotification(readyAt: number, newPhotos: number, previousId: string | null) {
+  if (Platform.OS === 'web') return null;
+  if (previousId) await Notifications.cancelScheduledNotificationAsync(previousId).catch(() => {});
+  const { status } = await Notifications.requestPermissionsAsync();
+  if (status !== 'granted') return null;
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Done shooting?',
+      body: `${newPhotos} new photos · Picky will keep the ones you'd keep and free up the rest — tap to review`,
+      data: { screen: 'review' },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: readyAt },
+  });
+}
+
+export async function cancelNotification(id: string | null) {
+  if (Platform.OS === 'web' || !id) return;
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+}
+
+// Sent right after curation; tapping it opens Your call.
 export async function scheduleNightNotification(state: PickyState) {
   if (Platform.OS === 'web') return;
   const { status } = await Notifications.requestPermissionsAsync();

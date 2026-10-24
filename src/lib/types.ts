@@ -58,6 +58,7 @@ export interface PickyState {
   review: { sceneId: string; aId: PhotoId; bId: PhotoId; index: number; total: number } | null;
   busy: boolean;
   status?: string; // progress line while busy, e.g. "Looking at scene 2 of 4…"
+  watch?: { newPhotos: number; lastPhotoAt: number; readyAt: number }; // new photos waiting for the shoot to end
   freedBytes: number;
   error?: string;
 }

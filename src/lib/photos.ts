@@ -7,15 +7,40 @@ import type { Photo, PhotoId, Scene } from '@/lib/types';
 export const ALBUM_NAME = 'Picky Demo';
 export const TODAY_ONLY = true; // set to false if the demo photos weren't shot today
 export const SCENE_GAP_MIN = 5; // a gap longer than this starts a new scene
+// No new photo for this long = the shoot is over, so Picky curates. Product: 60. Demo default: 1.
+export const IDLE_MINUTES = Number(process.env.EXPO_PUBLIC_IDLE_MINUTES ?? 1);
 const MAX_PHOTOS_PER_SCENE = 12;
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// Cheap check used for auto-detect: capture times of today's photos (album if it exists, else the library).
+export async function peekTodaysPhotoTimes(): Promise<number[]> {
+  const perm = await MediaLibrary.requestPermissionsAsync();
+  if (!perm.granted) return [];
+  const album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
+  const page = await MediaLibrary.getAssetsAsync({
+    ...(album ? { album } : {}),
+    mediaType: MediaLibrary.MediaType.photo,
+    createdAfter: startOfToday(),
+    sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+    first: 300,
+  });
+  return page.assets.map((a) => a.creationTime);
+}
+
+export function onLibraryChange(listener: () => void) {
+  return MediaLibrary.addListener(listener);
+}
 
 export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, Photo>; scenes: Scene[] }> {
   const perm = await MediaLibrary.requestPermissionsAsync();
   if (!perm.granted) throw new Error('Picky needs access to your photos (Settings → Expo Go → Photos → Full Access).');
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const createdAfter = TODAY_ONLY ? startOfToday.getTime() : undefined;
+  const createdAfter = TODAY_ONLY ? startOfToday() : undefined;
 
   let album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
   if (!album) {
@@ -23,7 +48,7 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
     // Photos without a person in them are still skipped later by the scoring step.
     const today = await MediaLibrary.getAssetsAsync({
       mediaType: MediaLibrary.MediaType.photo,
-      createdAfter: startOfToday.getTime(),
+      createdAfter: startOfToday(),
       sortBy: [[MediaLibrary.SortBy.creationTime, false]],
       first: 300,
     });
