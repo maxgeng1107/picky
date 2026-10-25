@@ -12,11 +12,32 @@ Personalized AI photo curation for the everyday smartphone photographer.
 
 **▶ [Watch the 2-minute demo](https://github.com/maxgeng1107/picky/releases/download/demo-video/picky-demo-captioned.mp4)** (captions + voiceover, real photos)
 
-[The opportunity](#a-global-habit-a-recurring-problem) · [Measured in our demo](#measured-in-our-demo) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
+[Why it's invisible](#why-picky-is-invisible) · [The opportunity](#a-global-habit-a-recurring-problem) · [Measured in our demo](#measured-in-our-demo) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
 
 </div>
 
 Picky helps smartphone photographers reclaim the time and attention spent choosing between similar photos. It detects new shots, recommends which portraits to keep, and learns personal preferences from quick A/B choices, so people can delegate more of the sorting work.
+
+## Why Picky is invisible
+
+**You never open a photo cleaner. You just take photos.** Picky has no gallery to browse and no sorting screen to work through. The only interface you have to deal with is one notification and a few taps.
+
+| What you do | What Picky does on its own |
+| --- | --- |
+| Take photos, as usual — 322 of them in our test | Notices the new photos. Ignores screenshots, food and scenery; only photos of a person count |
+| Stop shooting | Waits until the shoot is over (no new photo for a while), then splits the photos into scenes and has Claude score every shot |
+| *Nothing* | Keeps the 1–3 photos per scene you would post, sets the rest aside, remembers your taste |
+| Get **one** notification | "Picky tidied 314 photos · a few need your call" |
+| Answer a few A-or-B taps (optional) | Learns *why* you choose — e.g. "face looks smaller", not "facing the camera" — and re-ranks every other scene instantly |
+| Tap **once** | Clears what you didn't keep and frees the space (~1 GB in our test) |
+
+**Without Picky:** open Photos, scroll through 322 near-identical shots, compare 29 scenes in your head, delete 259 photos. **With Picky:** one notification, a few taps, one confirmation.
+
+**It gets more invisible the more you use it.** Picky only asks when it isn't sure. In our demo, after the first **2** answers, the number of open questions dropped from **51 to 20**, because Picky could already decide the other scenes your way. As your taste becomes clear, the taps go toward zero and the notification becomes "done — 1 GB freed".
+
+**What the demo video shows.** The video starts where your attention starts: everything before it — noticing the photos, grouping, scoring, picking — happened without any input. It then shows the only moments that need you: a few A/B taps and the one-tap cleanup.
+
+**Honest limits today.** iOS doesn't let apps run the moment a photo is taken, so in this prototype Picky notices new photos when it is opened or comes back to the foreground, and a scheduled reminder fires when the shoot looks over. A native build would curate in the background (e.g. overnight while charging); Android can trigger on each new photo. More detail in [Built for Invisible Interfaces](#built-for-invisible-interfaces).
 
 ## A global habit. A recurring problem.
 
