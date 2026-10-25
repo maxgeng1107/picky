@@ -47,3 +47,4 @@ example
 server/.env
 server/cache/
 .picky-cache/
+demo/

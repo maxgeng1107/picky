@@ -28,7 +28,7 @@ export async function peekTodaysPhotos(): Promise<{ id: string; takenAt: number 
     mediaType: MediaLibrary.MediaType.photo,
     createdAfter: startOfToday(),
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-    first: 300,
+    first: 1000,
   });
   return page.assets.map((a) => ({ id: a.id, takenAt: a.creationTime }));
 }
@@ -40,9 +40,9 @@ async function syncTodayIntoAlbum(): Promise<MediaLibrary.Album> {
     mediaType: MediaLibrary.MediaType.photo,
     createdAfter: startOfToday(),
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-    first: 300,
+    first: 1000,
   });
-  if (today.hasNextPage) throw new Error('This demo supports up to 300 photos taken today. Use a smaller test photo library.');
+  if (today.hasNextPage) throw new Error('This demo supports up to 1000 photos taken today. Use a smaller test photo library.');
   let album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
   if (!album) {
     if (today.assets.length === 0) throw new Error('No photos taken today yet. Take a few selfies and try again.');
@@ -52,7 +52,7 @@ async function syncTodayIntoAlbum(): Promise<MediaLibrary.Album> {
     album,
     mediaType: MediaLibrary.MediaType.photo,
     createdAfter: startOfToday(),
-    first: 300,
+    first: 1000,
   });
   const already = new Set(inAlbum.assets.map((a) => a.id));
   const missing = today.assets.filter((a) => !already.has(a.id));
@@ -79,10 +79,10 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
     mediaType: MediaLibrary.MediaType.photo,
     createdAfter,
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-    first: 300,
+    first: 1000,
   });
   const assets = [...page.assets].sort((a, b) => a.creationTime - b.creationTime);
-  if (page.hasNextPage) throw new Error('This demo supports up to 300 photos per run. Use a smaller test photo library.');
+  if (page.hasNextPage) throw new Error('This demo supports up to 1000 photos per run. Use a smaller test photo library.');
   if (assets.length === 0) {
     throw new Error(
       TODAY_ONLY ? `No photos taken today in "${ALBUM_NAME}".` : `The "${ALBUM_NAME}" album is empty.`,
