@@ -2,7 +2,7 @@
 
 ## 默认手机
 
-保留 main@b3ef92c 的计数器、通用分数、选片规则、评分定义与 512px JPEG 输入。`POST /api/select` 请求 `{ sceneId, photos: [{id,imageBase64}] }`，响应 `{label,photos:[{id,person,gated,scores}]}`。8 个维度返回 1–5 的整数；当前 main 仍用场景内相对评分。
+保留 main@94bf628 的计数器、通用分数、选片规则、评分定义与 512px JPEG 输入。`POST /api/select` 请求 `{ sceneId, photos: [{id,imageBase64}] }`，响应 `{label,photos:[{id,person,gated,scores}]}`。8 个维度返回 1–5 的整数；当前 main 仍用场景内相对评分。
 
 `server/legacy-vision.ts` 复用原提示词和结构化输出设置，补充唯一 ID/完整响应校验、无效缓存重算、基于模型/提示词/属性定义/图片内容的缓存、60 秒超时、单并发、请求去重和默认每进程 60 次调用上限。SDK 不自动重试。计数上限不是美元消费上限，重启重置。
 

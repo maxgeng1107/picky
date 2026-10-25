@@ -61,6 +61,8 @@ export interface PickyState {
   busy: boolean;
   status?: string; // progress line while busy, e.g. "Looking at scene 2 of 4…"
   watch?: { newPhotos: number; lastPhotoAt: number; readyAt: number }; // new photos waiting for the shoot to end
+  myPicks?: Record<string, PhotoId>; // accuracy test: sceneId → the photo you'd keep (written down beforehand)
+  profileHistory?: TasteProfile[]; // profile after 0, 1, 2… learning answers, for the accuracy curve
   freedBytes: number;
   error?: string;
 }
@@ -72,6 +74,7 @@ export interface PickyActions {
   answer(a: Answer, expected?: NonNullable<PickyState['review']>): Promise<void>; // expected guards stale/double taps
   freeUpSpace(): Promise<void>; // back up JPEG copies, verify, then request native deletion
   rescue(id: PhotoId): void; // keep another original without inferring a relative preference
+  setMyPick?(sceneId: string, photoId: PhotoId): void; // accuracy test: mark (or unmark) your pick
   reset(): void;
 }
 

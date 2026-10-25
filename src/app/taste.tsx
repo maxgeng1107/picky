@@ -7,7 +7,8 @@ import { Accent, AccentSoft, AgainstColor, SupportColor } from '@/constants/pick
 import { Spacing } from '@/constants/theme';
 import { usePicky } from '@/hooks/use-picky';
 import { useTheme } from '@/hooks/use-theme';
-import type { Criterion } from '@/lib/types';
+import { evaluate } from '@/lib/taste';
+import type { Criterion, PickyState } from '@/lib/types';
 
 export default function TasteScreen() {
   const { state, actions } = usePicky();
@@ -21,12 +22,69 @@ export default function TasteScreen() {
         </ThemedText>
       </Card>
 
+      <AccuracyCard state={state} />
+
       {criteria.map((c) => (
         <CriterionRow key={c.key} criterion={c} />
       ))}
 
       <PickyButton label="Reset (start the demo over)" variant="ghost" onPress={actions.reset} />
     </Screen>
+  );
+}
+
+// How often Picky's keepers include the photo you picked beforehand, after 0, 1, 2… answers.
+function AccuracyCard({ state }: { state: PickyState }) {
+  const theme = useTheme();
+  const picks = state.myPicks ?? {};
+  if (Object.keys(picks).length === 0) {
+    return (
+      <Card>
+        <ThemedText type="smallBold">Practice set · keeper hit rate</ThemedText>
+        <ThemedText themeColor="textSecondary">
+          On Today, tap the photo you picked beforehand in each scene (⭐). Then answer Your call — this card shows how
+          often Picky keeps your pick after each answer.
+        </ThemedText>
+      </Card>
+    );
+  }
+  const history = state.profileHistory ?? [state.profile];
+  const rows = history.map((profile, i) => ({ i, ...evaluate(state, profile, picks) }));
+  const { generic, total } = rows[0];
+  const pct = (n: number) => (total ? n / total : 0);
+  return (
+    <Card>
+      <ThemedText type="smallBold">Practice set · {total} marked scenes</ThemedText>
+      <View style={styles.accRow}>
+        <ThemedText type="small" style={styles.accLabel}>
+          Generic app
+        </ThemedText>
+        <View style={[styles.track, styles.accTrack, { backgroundColor: theme.backgroundSelected }]}>
+          <View style={{ flex: pct(generic), backgroundColor: theme.textSecondary }} />
+          <View style={{ flex: 1 - pct(generic) }} />
+        </View>
+        <ThemedText type="smallBold" style={styles.accValue}>
+          {generic}/{total}
+        </ThemedText>
+      </View>
+      {rows.map((r) => (
+        <View key={r.i} style={styles.accRow}>
+          <ThemedText type="small" style={styles.accLabel}>
+            Picky · {r.i} {r.i === 1 ? 'answer' : 'answers'}
+          </ThemedText>
+          <View style={[styles.track, styles.accTrack, { backgroundColor: theme.backgroundSelected }]}>
+            <View style={{ flex: pct(r.picky), backgroundColor: Accent }} />
+            <View style={{ flex: 1 - pct(r.picky) }} />
+          </View>
+          <ThemedText type="smallBold" style={styles.accValue}>
+            {r.picky}/{r.total}
+          </ThemedText>
+        </View>
+      ))}
+      <ThemedText type="small" themeColor="textSecondary">
+        A hit = Picky&apos;s 1–3 keepers include your pick. Includes scenes used for learning and is not a held-out accuracy test.
+      </ThemedText>
+    </Card>
   );
 }
 
@@ -84,4 +142,8 @@ const styles = StyleSheet.create({
   arrowText: { color: '#fff', fontWeight: 800 },
   track: { height: 10, borderRadius: 5, overflow: 'hidden', flexDirection: 'row' },
   counts: { flexDirection: 'row', justifyContent: 'space-between' },
+  accRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  accLabel: { width: 112 },
+  accTrack: { flex: 1 },
+  accValue: { width: 36, textAlign: 'right' },
 });

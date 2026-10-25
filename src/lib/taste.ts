@@ -326,6 +326,35 @@ export function applyAnswer(state: PickyState, a: Answer, expected?: NonNullable
   return advance(next, review.index + 1);
 }
 
+// Remember the profile after every answer that taught something (for the accuracy curve).
+export function withHistory(prev: PickyState, next: PickyState): PickyState {
+  if (next.profile === prev.profile || next.profile.criteria.every((c, i) => c.support === prev.profile.criteria[i]?.support && c.against === prev.profile.criteria[i]?.against)) return next;
+  return { ...next, profileHistory: [...(prev.profileHistory ?? [prev.profile]), next.profile] };
+}
+
+// Accuracy test: re-pick every marked scene from scratch with `profile` and count how often the
+// keepers include your pick. A generic app (no taste) is scored with the same 1–3 keeper rule.
+export function evaluate(state: PickyState, profile: TasteProfile, picks: Record<string, string>) {
+  let picky = 0;
+  let generic = 0;
+  let total = 0;
+  const useTaste = hasEvidence(profile);
+  const tasteOrGeneric = (p: Photo) => (useTaste ? tasteScore(p.scores!, profile) : genericScore(p.scores!));
+  const genericOnly = (p: Photo) => genericScore(p.scores!);
+  for (const scene of state.scenes) {
+    const pick = picks[scene.id];
+    if (!pick) continue;
+    const candidates = scene.photoIds.map((id) => state.photosById[id]).filter((p) => p && !p.gated && p.scores);
+    if (!candidates.some((p) => p.id === pick)) continue;
+    total += 1;
+    const byTaste = [...candidates].sort((a, b) => tasteOrGeneric(b) - tasteOrGeneric(a));
+    if (pickKeepers(byTaste, tasteOrGeneric).some((p) => p.id === pick)) picky += 1;
+    const byGeneric = [...candidates].sort((a, b) => genericOnly(b) - genericOnly(a));
+    if (pickKeepers(byGeneric, genericOnly).some((p) => p.id === pick)) generic += 1;
+  }
+  return { picky, generic, total };
+}
+
 export function applyRescue(state: PickyState, id: string): PickyState {
   const photo = state.photosById[id];
   if (!photo || photo.deleted) return state;

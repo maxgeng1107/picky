@@ -5,7 +5,7 @@ import { isDriveConfigured, selectScene, uploadToDrive } from './api';
 import { backupThenDelete } from './backup';
 import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from './notify';
 import { IDLE_MINUTES, loadTodaysScenes, onLibraryChange, peekTodaysPhotos, toBase64, toFullJpegBase64, deleteFromPhone } from './photos';
-import { advance, applyAnswer, applyRescue, emptyProfile } from './taste';
+import { advance, applyAnswer, applyRescue, emptyProfile, withHistory } from './taste';
 import { beginCuration, decodePreferences, encodePreferences, initialState, recoverPreferences } from './preferences';
 import { acceptSceneScores } from './scoring';
 import type { PickyActions, PickyContextValue, PickyState } from './types';
@@ -85,7 +85,7 @@ export function PickyProvider({ children }: { children: ReactNode }) {
       }
       if (version !== revision.current) return;
       next = advance({ ...next, scenes: next.scenes.filter((s) => s.photoIds.length) }, 0);
-      next = { ...next, busy: false, status: undefined, watch: undefined,
+      next = { ...next, busy: false, status: undefined, watch: undefined, profileHistory: [next.profile],
         error: next.scenes.length ? undefined : 'No single-person portrait photos were found. Originals remain in your album.' };
       // Only successful runs advance the checkpoint; reset cancels all late results.
       lastCuratedAt.current = Math.max(0, ...Object.values(loaded.photosById).map((p) => p.takenAt));
@@ -158,7 +158,14 @@ export function PickyProvider({ children }: { children: ReactNode }) {
   }, [commit]);
   const actions = useMemo<PickyActions>(() => ({
     loadAlbum, simulateNight, curateNextScene: async () => { if (!running.current) commit(advance(current.current, current.current.review?.index ?? 0)); },
-    answer: async (answer, expected) => { if (!running.current) save(applyAnswer(current.current, answer, expected)); },
+    answer: async (answer, expected) => { if (!running.current) save(withHistory(current.current, applyAnswer(current.current, answer, expected))); },
+    setMyPick: (sceneId, photoId) => {
+      if (running.current || !current.current.scenes.some((s) => s.id === sceneId && s.photoIds.includes(photoId))) return;
+      const myPicks = { ...current.current.myPicks };
+      if (myPicks[sceneId] === photoId) delete myPicks[sceneId];
+      else myPicks[sceneId] = photoId;
+      commit({ ...current.current, myPicks });
+    },
     freeUpSpace,
     rescue: (id) => { if (!running.current) save(applyRescue(current.current, id)); },
     reset: () => {

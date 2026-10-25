@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { emptyProfile, learn, tasteScore, advance, applyAnswer } from '../src/lib/taste';
+import { emptyProfile, learn, tasteScore, advance, applyAnswer, evaluate, withHistory } from '../src/lib/taste';
 import * as baseline from './baseline';
 import { beginCuration, initialState, encodePreferences, recoverPreferences } from '../src/lib/preferences';
 import { KEYS } from '../src/lib/personalization/features';
@@ -31,4 +31,26 @@ test('default engine rejects a stale answer without updating another pair', () =
   assert.ok(state.review);
   const next = applyAnswer(state, 'keepA', state.review);
   assert.equal(applyAnswer(next, 'replace', state.review), next);
+});
+test('practice history counts only changed evidence and excludes unavailable marked picks', () => {
+  const profile = emptyProfile();
+  const before = initialState(profile);
+  const unchanged = { ...before, profile: { ...profile, criteria: profile.criteria.map((c) => ({ ...c })) } };
+  assert.equal(withHistory(before, unchanged).profileHistory, undefined);
+  const after = { ...before, profile: learn(profile, { smile_teeth: 5 }, { smile_teeth: 1 }) };
+  assert.deepEqual(withHistory(before, after).profileHistory, [profile, after.profile]);
+  const scores = Object.fromEntries(KEYS.map((k) => [k, 3]));
+  const photo = { id: 'a', uri: '', takenAt: 0, sceneId: 's', status: 'kept' as const, scores };
+  const state = { ...before, scenes: [{ id: 's', photoIds: ['a', 'b'], keptIds: [], genericKeptIds: [], uncertainIds: [], reviewed: false }],
+    photosById: { a: photo, b: { ...photo, id: 'b', gated: true } } };
+  assert.deepEqual(evaluate(state, profile, { s: 'a' }), { picky: 1, generic: 1, total: 1 });
+  assert.equal(evaluate(state, profile, { s: 'b' }).total, 0);
+  assert.equal(evaluate(state, profile, { s: 'missing' }).total, 0);
+});
+test('rerunning curation carries practice marks by photo ID when scene numbers change', () => {
+  const scene = (id: string, photoIds: string[]) => ({ id, photoIds, keptIds: [], genericKeptIds: [], uncertainIds: [], reviewed: false });
+  const state = { ...initialState(), myPicks: { oldScene: 'my-photo' } };
+  const rerun = beginCuration(state, { photosById: {}, scenes: [scene('oldScene', ['different-photo']), scene('newScene', ['my-photo'])] });
+  assert.deepEqual(rerun.myPicks, { newScene: 'my-photo' });
+  assert.equal(rerun.profile, state.profile);
 });

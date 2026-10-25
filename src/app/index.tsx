@@ -82,7 +82,14 @@ export default function TodayScreen() {
       </Card>
 
       {curated.map((scene) => (
-        <SceneCard key={scene.id} scene={scene} photosById={state.photosById} profile={state.profile} />
+        <SceneCard
+          key={scene.id}
+          scene={scene}
+          photosById={state.photosById}
+          profile={state.profile}
+          myPick={state.myPicks?.[scene.id]}
+          onPick={actions.setMyPick ? (photoId) => actions.setMyPick!(scene.id, photoId) : undefined}
+        />
       ))}
 
       <PickyButton label="Pick again" variant="ghost" onPress={actions.simulateNight} />

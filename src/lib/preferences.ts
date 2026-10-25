@@ -7,7 +7,14 @@ export function initialState(profile: TasteProfile = emptyProfile()): PickyState
   return { photosById: {}, scenes: [], profile, review: null, busy: false, freedBytes: 0 };
 }
 export function beginCuration(current: PickyState, loaded: Pick<PickyState, 'photosById' | 'scenes'>): PickyState {
-  return { ...initialState(current.profile), ...loaded, photosById: { ...loaded.photosById }, scenes: [...loaded.scenes], profile: current.profile, freedBytes: current.freedBytes, busy: true };
+  // Scene numbers can change when new photos arrive; carry a mark only by photo membership.
+  const markedIds = new Set(Object.values(current.myPicks ?? {}));
+  const myPicks: Record<string, string> = {};
+  for (const scene of loaded.scenes) {
+    const matches = scene.photoIds.filter((id) => markedIds.has(id));
+    if (matches.length === 1) myPicks[scene.id] = matches[0];
+  }
+  return { ...initialState(current.profile), ...loaded, photosById: { ...loaded.photosById }, scenes: [...loaded.scenes], profile: current.profile, freedBytes: current.freedBytes, myPicks, busy: true };
 }
 export function encodePreferences(profile: TasteProfile, lastCuratedAt: number, processedIds: string[] = []): string {
   if (!profile.preference) return JSON.stringify({ snapshotVersion: 1, featureVersion: 'counter-scene-v1',
