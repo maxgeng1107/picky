@@ -136,7 +136,18 @@ export function PickyProvider({ children }: { children: ReactNode }) {
     try {
       const configured = await isDriveConfigured();
       if (version !== revision.current) return;
-      if (!configured) throw new Error('Google Drive backup is not connected. No original photos were deleted.');
+      if (!configured) {
+        // No Drive: only with an explicit confirmation, and iOS still keeps them in Recently Deleted for 30 days.
+        const ok = await new Promise<boolean>((resolve) => Alert.alert('Free up space',
+          `Google Drive isn't connected. Delete the ${binned.length} photos Picky didn't keep? iOS keeps them in Recently Deleted for 30 days.`,
+          [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Delete', style: 'destructive', onPress: () => resolve(true) }]));
+        if (version !== revision.current) return;
+        if (!ok || !(await deleteFromPhone(binned.map((p) => p.id)))) { commit({ ...current.current, busy: false, status: undefined }); return; }
+        const photosById = { ...current.current.photosById }; let freed = 0;
+        for (const p of binned) { freed += photosById[p.id]?.sizeBytes ?? 0; photosById[p.id] = { ...photosById[p.id], deleted: true }; }
+        commit({ ...current.current, photosById, freedBytes: current.current.freedBytes + freed, busy: false, status: undefined });
+        return;
+      }
       const confirmed = await new Promise<boolean>((resolve) => Alert.alert('Back up JPEG copies & free space',
         `Upload JPEG copies of ${binned.length} photos to the configured Google Drive account, then remove only verified copies from this phone? JPEG copies do not preserve original HEIC format or Live Photo motion; original metadata is not guaranteed.`,
         [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Back up & delete', style: 'destructive', onPress: () => resolve(true) }]));

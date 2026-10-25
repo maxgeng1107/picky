@@ -13,6 +13,7 @@ export default function TodayScreen() {
   const photos = Object.values(state.photosById);
   const curated = state.scenes.filter((s) => s.keptIds.length > 0);
   const notSuggested = photos.filter((p) => p.status === 'binned' && !p.deleted).length;
+  const toFree = photos.filter((p) => p.status === 'binned' && !p.deleted).reduce((n, p) => n + (p.sizeBytes ?? 0), 0);
   const asks = state.review ? state.review.total - state.review.index : 0;
 
   const notice = state.error ? (
@@ -74,7 +75,7 @@ export default function TodayScreen() {
           <ThemedText style={styles.freed}>~{formatMb(state.freedBytes)}</ThemedText>
         </View>
         <PickyButton
-          label={notSuggested ? 'Back up & free space' : 'Nothing to free'}
+          label={notSuggested ? `Free up ~${formatMb(toFree)}` : 'Nothing to free'}
           disabled={!notSuggested || state.busy}
           onPress={actions.freeUpSpace}
           loading={state.busy}
