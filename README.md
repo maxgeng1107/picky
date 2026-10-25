@@ -1,94 +1,205 @@
-# Picky — as picky as you are
+<div align="center">
 
-Picky 从你的 A/B 选择中学习，在自己的肖像照片里推荐你更喜欢的那几张。现有手机计数器从 A/B 选择积累偏好；独立实验工具比较新的个人排序器。VLM 权重不更新。
+# Picky
 
-## 当前状态
+### As picky as you are.
 
-- Today / Your call / Your taste 页面、当天相册读取、时间分组、前台新照片检测和本地提醒已实现。
-- 默认保留 main@b701981 的计数器、通用分数、VLM 提示词和 512px 评分输入；没有证据证明新排序器更准，所以不替换默认行为。
-- 保留 Drive JPEG 备份与空间释放；缺少配置、上传失败、内容校验失败或用户取消时不删除。确认过的 JPEG 副本不等同于原始 HEIC/Live Photo 完整备份。
-- 保留偏好/已处理资产 ID 的设备持久化和损坏恢复、严格评分响应校验、内容缓存、超时、调用上限、旧点击防护及类型/lint 修复。
-- 新个人排序器和固定锚点评分仅用于真人盲选实验，默认手机仍用现有流程。
-- 39 项测试覆盖，包括 100 轮相同输入下默认计数器与旧版一致，以及备份失败/取消不删。真机、真实 Google/Anthropic 调用和真人准确率尚未验收。
+**Keep the moments. Get your time back.**
 
-详细取舍见 [server/DECISIONS.md](server/DECISIONS.md)。
+Personalized AI photo curation for the everyday smartphone photographer.
 
-## 启动手机应用
+**Invisible Interfaces · Track 4: AI-Powered Consumer Products for 1 Billion People**
 
-使用 Node 24：
+[The opportunity](#a-global-habit-a-recurring-problem) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
+
+</div>
+
+Picky helps smartphone photographers reclaim the time and attention spent choosing between similar photos. It detects new shots, recommends which portraits to keep, and learns personal preferences from quick A/B choices, so people can delegate more of the sorting work.
+
+## A global habit. A recurring problem.
+
+A day out can leave you with dozens of versions of the same moment: a slightly different smile, a different angle, a more natural expression. Taking the photos is easy. Choosing the few you actually want to keep takes attention, repeated comparisons, and decisions you may put off until later.
+
+The work adds up:
+
+- **Time:** opening a camera roll, comparing near-identical shots, and revisiting the same candidates.
+- **Mental effort:** deciding which small differences matter to you in each set.
+- **Clutter:** leaving the decision unfinished and keeping a growing collection of unwanted alternatives.
+- **Personal mismatch:** a technically usable photo can still be one you would never choose.
+
+**Picky's opportunity is to make a repeated personal decision easier to delegate.**
+
+GSMA's *The Mobile Economy 2026* reports **5.8 billion unique mobile subscribers**, around 70% of the world's population.[1] Within that broad mobile ecosystem, Picky targets people who regularly take and compare photos on their phones. This is market context, rather than an estimate of Picky's customers or paying market.
+
+Our starting audience is frequent portrait and selfie photographers who take many shots and share a few. The broader opportunity extends to travelers, families, and creators as the product expands beyond its current portrait focus.
+
+## Give people their time back
+
+Picky is designed to move users from reviewing an entire collection to checking a shortlist and making a few useful choices.
+
+| Work people do today | What Picky takes on |
+| --- | --- |
+| Sort a day's photos into comparable sets | Group photos into scenes using capture time |
+| Inspect each portrait for visible differences | Use a vision model to assess supported attributes and quality issues |
+| Decide which candidates fit their taste | Rank candidates using accumulated personal preference evidence |
+| Repeat their preferences for every new scene | Save feedback and reuse it in later selections |
+| Manually manage unwanted alternatives | Offer optional, verified JPEG backup before confirmed removal |
+
+**A small weekly saving can become meaningful at consumer scale.** If Picky saves someone **10 minutes of active sorting per week**, that is approximately **8.7 hours per year**. Across **1 million users**, the same assumption represents **8.7 million hours returned annually**.
+
+*This is an illustrative calculation, not a measured result or adoption forecast: 10 × 52 ÷ 60 = 8.67 hours per person. Actual time savings and effort reduction remain to be measured in user studies.*
+
+Our success metric is **less active sorting time while keeping the photos people actually want**. We will evaluate that alongside correction rate, repeat use, and recommendation quality on new photo sessions.
+
+## How Picky works
+
+1. **Notice the session.** Picky detects today's new photos when the app is active or returns to the foreground. After a configurable pause in shooting, it can start preparing suggestions.
+2. **Find comparable shots.** Photos are grouped by capture time. The current prototype focuses on images containing one clearly visible person; scenery, food, screenshots, and unsupported images stay outside its portrait recommendations.
+3. **Prepare a shortlist.** A vision model describes visible attributes. The selection logic recommends one to three keepers per scene using the current preference profile, with a generic starting rule before personal feedback exists.
+4. **Learn from your choice.** When the selection rules surface an alternative, a quick A/B choice updates preference evidence. That evidence influences later recommendations and persists across sessions.
+5. **Keep control.** Originals remain on the phone until the user explicitly confirms backup and removal. Optional Google Drive backup is verified before a photo becomes eligible for deletion.
+
+The prototype provides three views: **Today** for suggestions, **Your call** for comparisons, and **Your taste** for accumulated preference evidence.
+
+## Built for Invisible Interfaces
+
+**The product direction is ambient curation: photography creates the context, the system does the repetitive work, and the user contributes small corrections when useful.**
+
+Picky applies the challenge's sense–decide–act idea to an everyday consumer task:
+
+| Layer | Picky's approach |
+| --- | --- |
+| **Sense** | Use photo-library changes and capture times to recognize new shooting activity |
+| **Decide** | Combine visual observations with a persistent personal preference profile |
+| **Act** | Prepare recommendations, send local reminders, and offer confirmed backup and removal |
+| **Adapt** | Let explicit choices change how later photos are ranked |
+
+This makes **Track 4: AI-Powered Consumer Products for 1 Billion People** our primary fit: a broad, recurring need with a path toward less screen-driven interaction. Timeouts, bounded retries, response validation, caching, and a configurable model-call cap also support the challenge's emphasis on systems that know when to stop.
+
+**Today:** recommendations and A/B feedback use screens; detection runs while the app is active or when it returns to the foreground. Background reminders invite the user back. Voice interaction and full background curation are future work. The current prototype is a step toward the invisible experience, rather than a fully screen-free or continuously running agent.
+
+## Personal taste, carried forward
+
+Picky separates visual perception from preference learning.
+
+- **Vision supplies observations:** relative attribute scores for facial presentation, pose, expression, and lighting within a scene.
+- **Choices supply preference evidence:** explicit winners and losers update support and opposition counts for visible attributes.
+- **Code supplies memory:** those counts determine ranking weights and persist on the device. Updating a preference requires no additional model call.
+
+The default phone flow uses the existing preference counter. A separate experiment evaluates a regularized pairwise ranking model with fixed-anchor visual features. It is available for comparison, and does not replace the phone default until real-user evidence supports that change. Neither approach updates the VLM's weights.
+
+The commercial hypothesis is that a useful personal preference history can make a recurring workflow easier to delegate. Whether it improves recommendations, reduces effort, and earns repeat use is what the pilot must establish.
+
+## A focused start, with room to grow
+
+**Start with a specific, frequent problem:** people taking multiple portraits during outings and choosing a small set to keep or share.
+
+| Potential audience | Recurring need | Product value to validate |
+| --- | --- | --- |
+| Frequent selfie and portrait photographers | Choose between small changes in pose and expression | Fewer comparisons and recommendations that reflect personal taste |
+| Social creators | Produce a usable shortlist after repeated shoots | Less selection work between capture and posting |
+| Travelers and families, as the scope expands | Organize larger collections after events and trips | Less accumulated sorting work and easier access to meaningful moments |
+
+**Distribution hypothesis:** begin in campus, photography, and creator communities where people take many photos and can compare Picky's suggestions with their own choices. Validate repeated use before broadening the audience.
+
+**Business model hypothesis:** offer a free entry tier for occasional curation, then test a subscription for frequent use and higher processing allowances. Pricing and willingness to pay are unvalidated; payments are not implemented.
+
+**Cost discipline:** vision analysis runs per uncached scene, with bounded retries. Cached observations can be reused, and preference updates run in code. The aim is to grow useful selections faster than inference cost, with usage limits tied to an eventual service tier.
+
+**Expansion path:** broader photo types, purpose-specific profiles, voice entry points, reliable background scheduling, and integrations with existing photo workflows. These are product opportunities beyond the current single-person portrait prototype.
+
+## Prototype status and validation
+
+| Capability | Status |
+| --- | --- |
+| Today's photo reading, time-based grouping, foreground detection, and idle-triggered suggestions | Implemented |
+| VLM scoring, personalized selection, A/B feedback, and device-local preference persistence | Implemented |
+| Local notifications and optional verified Drive JPEG backup with confirmed removal | Implemented |
+| New pairwise personal ranker and blind human-label collection workflow | Experimental |
+| Voice entry, full background execution, broader photo types, and individual Drive sign-in | Future work |
+| Measured time savings, real-user personalization lift, and production-scale economics | To validate |
+
+The integrated codebase includes **39 automated tests** covering preference behavior, persistence, stale answers, partial failures, scoring validation, caching, call limits, and backup verification. Provider tests use fixtures. They establish implementation behavior, not aesthetic accuracy or measured user benefit; real-provider and iPhone end-to-end acceptance remain to be completed.
+
+The evaluation workflow separates training and testing by capture session, hides predictions during labeling, supports ties and skips, and checks repeated-choice consistency. The next evidence to collect is whether personalization improves choices on unseen sessions and saves active review time. See [the experiment guide](server/README.md) and [current experimental findings](server/EXPERIMENTS.md).
+
+## Trust and user control
+
+- Photos submitted for visual analysis are sent to Anthropic. API credentials stay on the server; the preference profile is stored on the device.
+- Explicit keep and replace choices provide learning evidence. Keeping both or skipping does not imply a relative preference.
+- Removal requires user confirmation and the native deletion flow. Missing Drive configuration or failed verification leaves originals on the phone.
+- Drive backup creates full-resolution JPEG copies. Original HEIC format, metadata, and Live Photo motion are not guaranteed to be preserved.
+- The demo uses one configured Drive account. Public deployment requires individual authorization and production access controls.
+
+## Run Picky
+
+Use **Node.js 24** and install dependencies:
 
 ```bash
 npm ci
 ```
 
-在本地根目录 `.env` 填写，勿提交：
+Create a root `.env` file; keep it out of version control:
 
 ```dotenv
-ANTHROPIC_API_KEY=your-key
-# 可选：改成该 key 实际可用的视觉模型；默认沿用项目的 claude-opus-5-5
-ANTHROPIC_MODEL=claude-opus-5-5
+ANTHROPIC_API_KEY=your_key_here
 MAX_VLM_CALLS=60
 ```
+
+Optionally set `ANTHROPIC_MODEL` to a supported vision model available to your account. Start the development server:
 
 ```bash
 npx expo start --tunnel
 ```
 
-iPhone 需允许照片权限。保留现有主分支行为：自动检测当天整个相机胶卷，并同步到 `Picky Demo` 相册后选片。每次最多处理 300 张，每组最多 12 张，拍摄时间相隔超过 5 分钟另起一组。照片会发送到 Anthropic 进行视觉分析；原图保留。
+Open the project on an iPhone with Expo Go and grant photo access. Prepare a small set of today's single-person portraits for the demo. The current flow reads today's camera roll and synchronizes photos into **Picky Demo**; the reader supports up to 1,000 photos, with at most 12 per scene. The model-call cap may stop scoring before every scene is processed; failed scenes remain untouched.
 
-保留手机内的选片标记与学习曲线，但明确显示为练习集命中率：包含参与学习的场景，不能作为未见照片上的准确率证据。重新处理时按照片 ID 迁移标记，避免场景编号变化造成错配。
+The demo idle interval defaults to one minute. Set `EXPO_PUBLIC_IDLE_MINUTES=60` for a longer interval. iOS uses the real photo workflow; the web uses sample data. `EXPO_PUBLIC_USE_MOCK=1` enables the sample workflow on the phone.
 
-手机默认真实数据，Web 默认 mock；`EXPO_PUBLIC_USE_MOCK=1` 可在手机使用 mock。开发时 API 使用 Expo 的开发服务器，校园 Wi-Fi 受限可用 tunnel。安装包上线还需独立部署 API 并配置服务 origin。
+For optional Drive backup, add the following server-side values to the same `.env`:
 
-Drive 备份需要在同一服务端 `.env` 配置 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REFRESH_TOKEN`（使用 drive.file 范围）。这是配置账号的演示服务，不是多用户 OAuth 登录；不要直接公开部署。
+```dotenv
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REFRESH_TOKEN=your_refresh_token
+```
 
-“Back up & free space”会先说明 JPEG 转换限制，再在每张上传被 Drive 确认且校验通过后请求系统删除。未配置 Drive 不提供直接删除 fallback。30 天 expiresAt 只是标签，自动清理尚未实现。
+The [Drive token helper](scripts/google-drive-token.mjs) supports one-time demo authorization. A production install also needs a separately deployed API and configured service origin; the development tunnel is not a production backend.
 
-新照片检测发生在打开应用、回到前台或应用运行期间相册变化时；demo 默认 1 分钟无新照片后开始。`EXPO_PUBLIC_IDLE_MINUTES=60` 可改为 60 分钟。后台是预约提醒，不保证 iOS 在后台执行完整选片。每组最多尝试两次，失败组不推进处理检查点、不会进入删除建议；成功组仍可完成，可以修复网络/配置后再试失败组。
-
-## 进行真实用户实验
+### Run a real-user study
 
 ```bash
 npm run experiment:real
 ```
 
-打开 http://127.0.0.1:3002 ，按页面创建并选择以下目录：
+Open `http://127.0.0.1:3002`. Prepare separate `train` and `test` folders containing independent capture-session folders, each with 3–6 similar portraits. Use one participant and purpose per run. The study supports up to 24 sessions and 120 images. Full instructions, model configuration, output formats, and limitations are in [server/README.md](server/README.md).
 
-```text
-PickyStudy/
-  train/session-01/  （本次拍摄的 3–6 张相似照片）
-  train/session-02/
-  test/session-11/   （独立拍摄会话）
-  test/session-12/
-```
-
-建议 train / test 各至少 5 个独立场景；同一连拍不得跨两侧。每人固定一个选片用途，选择 A/B、明确无偏好或跳过。完成前隐藏模型答案，完成后展示新旧方法、0/5/10/20/40 条反馈的测试效果及重复选择一致率。可选额外一次 VLM 请求检查评分稳定性。
-
-图片预览留在浏览器；特征、哈希和真人选择自动保存在忽略的 `server/runs/`，也可下载 JSON。没有真实标签时，不把模拟数字当产品准确率。刷新页面暂不能继续未完成的图片预览流程。
-
-详细协议、字段及限制见 [server/README.md](server/README.md)，模拟压力实验见 [server/EXPERIMENTS.md](server/EXPERIMENTS.md)。
-
-## 验证
+### Verify the code
 
 ```bash
 npm run test:preferences
+npm run typecheck
+npm run typecheck:backend
 npm run lint
 npm run lint:backend
-npm run typecheck
-npx expo export --platform web
-npx expo export --platform ios --output-dir dist-ios
 ```
 
-测试使用明确标记的 provider fixtures，不产生付费请求。真实 VLM、相册权限、本地通知、端到端拍照流程仍须真机验收。
+## Inside the repository
 
-## 代码位置
+| Area | Responsibility |
+| --- | --- |
+| [`src/app/`](src/app/) | Today, Your call, Your taste, and Expo API routes |
+| [`src/lib/use-picky.tsx`](src/lib/use-picky.tsx) | Photo workflow, persistence, cancellation, and checkpoints |
+| [`src/lib/taste.ts`](src/lib/taste.ts) | Default preference counter and selection rules |
+| [`server/legacy-vision.ts`](server/legacy-vision.ts) | Default visual scoring, validation, caching, and call limits |
+| [`src/lib/personalization/`](src/lib/personalization/) | Experimental pairwise preference model |
+| [`server/study.ts`](server/study.ts) | Blind label collection and held-out evaluation |
+| [`server/drive.ts`](server/drive.ts) | Verified JPEG backup |
 
-- `src/lib/use-picky.tsx`：真实数据流程、持久化、取消和处理检查点。
-- `src/lib/taste.ts`：现有默认计数器/选片规则；`personalization/`：仅实验的新排序器。
-- `src/lib/preferences.ts` / `scoring.ts`：快照格式、跨轮保留和响应校验。
-- `server/legacy-vision.ts`：保留现有手机提示词，补校验/缓存/限流；`server/vision.ts`：固定锚点实验评分。
-- `server/drive.ts` / `src/lib/backup.ts`：可重用 JPEG 备份、校验确认和仅删除已确认照片的执行逻辑。
-- `server/study.ts` / `real-experiment.ts`：真实标签收集和独立测试。
-- `server/baseline.ts`：冻结于 `main@23f2b9f` 的旧计数器，避免比较时误用同一个新模型。
+Built with **Expo, React Native, TypeScript, Expo Router, Anthropic vision, and Google Drive**. Implementation decisions are documented in [server/DECISIONS.md](server/DECISIONS.md); the API contract is in [docs/backend-spec.md](docs/backend-spec.md).
 
-仍待完成：真人效果评估、自动人脸局部图、按用途区分的个人档案、完整后台调度、多用户 Drive 授权及生产部署。实验模型是单用户单用途的线性模型，概率未校准；混合选择不等于用户不在乎。
+---
+
+**Picky's ambition: make personal photo curation useful enough to trust, and effortless enough to fade into everyday life.**
+
+[1]: https://www.gsmaintelligence.com/research/the-mobile-economy-2026 "GSMA Intelligence, The Mobile Economy 2026 (March 2026)"
