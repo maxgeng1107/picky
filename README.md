@@ -10,7 +10,9 @@ Personalized AI photo curation for the everyday smartphone photographer.
 
 **Invisible Interfaces · Track 4: AI-Powered Consumer Products for 1 Billion People**
 
-[The opportunity](#a-global-habit-a-recurring-problem) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
+**▶ [Watch the 2-minute demo](https://github.com/maxgeng1107/picky/releases/download/demo-video/picky-demo-captioned.mp4)** (captions + voiceover, real photos)
+
+[The opportunity](#a-global-habit-a-recurring-problem) · [Measured in our demo](#measured-in-our-demo) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
 
 </div>
 
@@ -25,6 +27,7 @@ The work adds up:
 - **Time:** opening a camera roll, comparing near-identical shots, and revisiting the same candidates.
 - **Mental effort:** deciding which small differences matter to you in each set.
 - **Clutter:** leaving the decision unfinished and keeping a growing collection of unwanted alternatives.
+- **Storage:** every unchosen alternative stays on the phone. In our own test, one hour of portrait shooting produced **322 photos and roughly 1 GB of alternatives** nobody planned to keep (see [Measured in our demo](#measured-in-our-demo)).
 - **Personal mismatch:** a technically usable photo can still be one you would never choose.
 
 **Picky's opportunity is to make a repeated personal decision easier to delegate.**
@@ -32,6 +35,23 @@ The work adds up:
 GSMA's *The Mobile Economy 2026* reports **5.8 billion unique mobile subscribers**, around 70% of the world's population.[1] Within that broad mobile ecosystem, Picky targets people who regularly take and compare photos on their phones. This is market context, rather than an estimate of Picky's customers or paying market.
 
 Our starting audience is frequent portrait and selfie photographers who take many shots and share a few. The broader opportunity extends to travelers, families, and creators as the product expands beyond its current portrait focus.
+
+## Measured in our demo
+
+One real afternoon shoot on campus (15:51–16:44, one person, iPhone), run through the full Picky pipeline on October 24, 2026:
+
+| | Result |
+| --- | --- |
+| Photos taken in about one hour | **322** |
+| Portraits Picky handled (photos without a person, such as screenshots, were left untouched) | **314** |
+| Scenes found from capture time | **29** |
+| Vision scoring | one Claude call per scene, about **9 seconds** each, two scenes at a time |
+| Photos kept as suggestions (1–3 per scene) | **55** |
+| Photos removed after one confirmation (iOS Recently Deleted keeps them 30 days) | **259 (82%)** |
+| Space freed | **~1 GB** (998 MB estimated from photo dimensions) |
+| Learning an answer | instant, no extra model call |
+
+*One person, one session, so this shows what the pipeline does, not a validated accuracy result. The A/B answers in the demo were made by the team; measuring how often Picky matches a user's own picks on new sessions is the next step (see [Prototype status and validation](#prototype-status-and-validation)).*
 
 ## Give people their time back
 
