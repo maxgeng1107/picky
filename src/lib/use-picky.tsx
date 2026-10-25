@@ -1,17 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
-import { selectScene } from './api';
+import { isDriveConfigured, selectScene, uploadToDrive } from './api';
+import { backupThenDelete } from './backup';
 import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from './notify';
-import { IDLE_MINUTES, loadTodaysScenes, onLibraryChange, peekTodaysPhotos, toBase64 } from './photos';
+import { IDLE_MINUTES, loadTodaysScenes, onLibraryChange, peekTodaysPhotos, toBase64, toFullJpegBase64, deleteFromPhone } from './photos';
 import { advance, applyAnswer, applyRescue, emptyProfile } from './taste';
 import { beginCuration, decodePreferences, encodePreferences, initialState, recoverPreferences } from './preferences';
 import { acceptSceneScores } from './scoring';
 import type { PickyActions, PickyContextValue, PickyState } from './types';
 
 const Context = createContext<PickyContextValue | null>(null);
-const profileFile = () => new File(Paths.document, 'picky-preferences-v2.json');
-const backupFile = () => new File(Paths.document, 'picky-preferences-v2-backup.json');
+const profileFile = () => new File(Paths.document, 'picky-counter-preferences-v1.json');
+const backupFile = () => new File(Paths.document, 'picky-counter-preferences-v1-backup.json');
 const readSaved = (file: File) => { try { return file.exists ? file.textSync() : undefined; } catch { return undefined; } };
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export function PickyProvider({ children }: { children: ReactNode }) {
@@ -19,6 +20,7 @@ export function PickyProvider({ children }: { children: ReactNode }) {
     try {
       if (Platform.OS !== 'web' && (profileFile().exists || backupFile().exists)) {
         const restored = recoverPreferences(readSaved(profileFile()), readSaved(backupFile()));
+        if (restored.profile.preference) throw new Error('Experimental model is not a counter snapshot.');
         return { ...restored, error: restored.recovered ? 'Recovered the previous preference snapshot.' : undefined };
       }
     } catch { return { profile: emptyProfile(), lastCuratedAt: 0, processedIds: [] as string[], error: 'Saved preferences could not be loaded. A new profile is active.' }; }
@@ -119,18 +121,53 @@ export function PickyProvider({ children }: { children: ReactNode }) {
     const library = onLibraryChange(() => void checkRef.current());
     return () => { cancelRun(); app.remove(); library.remove(); if (idleTimer.current) clearTimeout(idleTimer.current); };
   }, [cancelRun]);
+  const freeUpSpace = useCallback(async () => {
+    if (running.current) return;
+    const binned = Object.values(current.current.photosById).filter((p) => p.status === 'binned' && !p.deleted);
+    if (!binned.length) return;
+    running.current = true; const version = revision.current;
+    commit({ ...current.current, busy: true, status: 'Checking Drive backup…', error: undefined });
+    try {
+      const configured = await isDriveConfigured();
+      if (version !== revision.current) return;
+      if (!configured) throw new Error('Google Drive backup is not connected. No original photos were deleted.');
+      const confirmed = await new Promise<boolean>((resolve) => Alert.alert('Back up JPEG copies & free space',
+        `Upload JPEG copies of ${binned.length} photos to the configured Google Drive account, then remove only verified copies from this phone? JPEG copies do not preserve original HEIC format or Live Photo motion; original metadata is not guaranteed.`,
+        [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Back up & delete', style: 'destructive', onPress: () => resolve(true) }]));
+      if (version !== revision.current) return;
+      if (!confirmed) { commit({ ...current.current, busy: false, status: undefined }); return; }
+      let index = 0;
+      const result = await backupThenDelete(binned, {
+        isCurrent: () => version === revision.current,
+        backup: async (photo) => {
+          commit({ ...current.current, status: `Backing up ${++index} of ${binned.length}…` });
+          return uploadToDrive(photo.id, `picky-${photo.takenAt}.jpg`, await toFullJpegBase64(photo.uri));
+        },
+        onBackedUp: (photo, receipt) => commit({ ...current.current, photosById: { ...current.current.photosById,
+          [photo.id]: { ...current.current.photosById[photo.id], driveFileId: receipt.driveFileId } } }),
+        remove: deleteFromPhone,
+      });
+      if (version !== revision.current) return;
+      const photosById = { ...current.current.photosById }; let freed = 0;
+      for (const id of result.deleted) { freed += photosById[id].sizeBytes ?? 0; photosById[id] = { ...photosById[id], deleted: true }; }
+      commit({ ...current.current, photosById, freedBytes: current.current.freedBytes + freed, busy: false, status: undefined,
+        error: result.failed.length ? `${result.failed.length} backups failed. Their originals remain on this phone.` : undefined });
+    } catch (error) {
+      if (version === revision.current) commit({ ...current.current, busy: false, status: undefined, error: errorText(error) });
+    } finally { running.current = false; }
+  }, [commit]);
   const actions = useMemo<PickyActions>(() => ({
     loadAlbum, simulateNight, curateNextScene: async () => { if (!running.current) commit(advance(current.current, current.current.review?.index ?? 0)); },
     answer: async (answer, expected) => { if (!running.current) save(applyAnswer(current.current, answer, expected)); },
-    freeUpSpace: async () => { Alert.alert('Originals preserved', 'Cloud backup is not connected. All original photos remain on your phone; deletion is disabled.'); },
+    freeUpSpace,
     rescue: (id) => { if (!running.current) save(applyRescue(current.current, id)); },
     reset: () => {
       cancelRun(); lastCuratedAt.current = 0; processedIds.current.clear();
       if (idleTimer.current) clearTimeout(idleTimer.current);
       void cancelNotification(idleNotificationId.current).catch(() => {}); idleNotificationId.current = null;
-      save(initialState(), true);
+      save({ ...initialState(), freedBytes: current.current.freedBytes }, true);
     },
-  }), [loadAlbum, simulateNight, commit, save, cancelRun]);
+  }), [loadAlbum, simulateNight, commit, save, cancelRun, freeUpSpace]);
   return <Context.Provider value={{ state, actions }}>{children}</Context.Provider>;
 }
 export function usePicky(): PickyContextValue {

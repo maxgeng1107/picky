@@ -108,20 +108,35 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
   return { photosById, scenes };
 }
 
-// Preserve fine detail without upscaling; bound the long edge, not only portrait width.
+// Preserve main scoring resolution/quality; release native image references and generated cache.
 export async function toBase64(uri: string): Promise<string> {
   const context = ImageManipulator.manipulate(uri);
   const references: { release(): void }[] = [];
   try {
-    const original = await context.renderAsync(); references.push(original);
-    const scale = Math.min(1, 1568 / Math.max(original.width, original.height));
-    context.resize({ width: Math.max(1, Math.round(original.width * scale)), height: Math.max(1, Math.round(original.height * scale)) });
+    context.resize({ width: 512 }); // Preserve the current main scoring input during evaluation.
     const image = await context.renderAsync(); references.push(image);
-    const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
+    const result = await image.saveAsync({ base64: true, compress: 0.7, format: SaveFormat.JPEG });
     if (!result.base64) throw new Error('Could not read a photo');
     if (result.uri !== uri) {
       try { new File(result.uri).delete(); } catch { /* Cache cleanup failure cannot invalidate encoding. */ }
     }
     return result.base64;
   } finally { references.forEach((ref) => ref.release()); context.release(); }
+}
+
+// Full-resolution JPEG copy; original HEIC format, metadata and Live Photo motion are not guaranteed.
+export async function toFullJpegBase64(uri: string): Promise<string> {
+  const context = ImageManipulator.manipulate(uri);
+  try {
+    const image = await context.renderAsync();
+    try {
+      const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
+      if (!result.base64) throw new Error('Could not encode JPEG backup.');
+      if (result.uri !== uri) { try { new File(result.uri).delete(); } catch { /* Best-effort generated-cache cleanup. */ } }
+      return result.base64;
+    } finally { image.release(); }
+  } finally { context.release(); }
+}
+export async function deleteFromPhone(ids: PhotoId[]): Promise<boolean> {
+  return ids.length ? MediaLibrary.deleteAssetsAsync(ids) : true;
 }

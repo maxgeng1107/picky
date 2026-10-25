@@ -74,9 +74,11 @@ export function SceneCard({
       {binned.length > 0 ? (
         <View style={{ gap: Spacing.two }}>
           <ThemedText type="small" themeColor="textSecondary">
-            {binned.every((p) => p.deleted)
-              ? `${binned.length} marked removed`
-              : `${binned.length} not suggested · originals remain on your phone`}
+            {binned.some((p) => p.deleted)
+              ? `${binned.filter((p) => p.deleted).length} originals removed · ${binned.filter((p) => p.driveFileId).length} JPEG copies backed up`
+              : binned.some((p) => p.driveFileId)
+                ? `${binned.filter((p) => p.driveFileId).length} JPEG copies backed up · originals still on phone`
+                : `${binned.length} not suggested · originals still on phone`}
           </ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.binRow}>
             {binned.map((p) => (

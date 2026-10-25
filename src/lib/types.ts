@@ -47,7 +47,7 @@ export interface Criterion {
 export interface TasteProfile {
   criteria: Criterion[];
   summary?: string;
-  /** Device-local personal pairwise model. Optional for the existing web mock. */
+  /** Experimental pairwise model; absent from the default phone counter. */
   preference?: import('./personalization/taste').PreferenceModel;
 }
 
@@ -70,8 +70,8 @@ export interface PickyActions {
   curateNextScene(): Promise<void>; // /api/select for the next unreviewed scene
   simulateNight(): Promise<void>; // curate all scenes, then schedule the "3 need your call" local notification (5 s)
   answer(a: Answer, expected?: NonNullable<PickyState['review']>): Promise<void>; // expected guards stale/double taps
-  freeUpSpace(): Promise<void>; // explains preservation; deletion is disabled until backup exists
-  rescue(id: PhotoId): void; // COULD: Cloud Bin → kept, learn rescued-vs-kept
+  freeUpSpace(): Promise<void>; // back up JPEG copies, verify, then request native deletion
+  rescue(id: PhotoId): void; // keep another original without inferring a relative preference
   reset(): void;
 }
 

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { beginCuration, decodePreferences, encodePreferences, initialState, recoverPreferences } from '../src/lib/preferences';
 import { acceptSceneScores, parseSelection } from '../src/lib/scoring';
-import { advance, applyAnswer, applyRescue } from '../src/lib/taste';
+import { prepare as advance, answerReview as applyAnswer } from '../src/lib/personalization/engine';
+import { applyRescue } from '../src/lib/taste';
 import { emptyModel, observe, profileFor, probability } from '../src/lib/personalization/taste';
 import { KEYS } from '../src/lib/personalization/features';
 import { learn as baselineLearn, emptyProfile as baselineProfile } from './baseline';
@@ -11,9 +12,9 @@ import type { Photo, Scene } from '../src/lib/types';
 const row = (value: number) => Object.fromEntries(KEYS.map((k) => [k, k === 'face_small' ? value : 3]));
 const photos = (): Photo[] => [1, 2, 3].map((i) => ({ id: `p${i}`, sceneId: 's', takenAt: 100, uri: '', status: 'kept', scores: row(i + 1) }));
 const scene = (): Scene => ({ id: 's', photoIds: ['p1', 'p2', 'p3'], keptIds: [], genericKeptIds: [], uncertainIds: [], reviewed: false });
-test('native engine learns fine differences, retains choices across curation and snapshot reload', () => {
+test('experimental ranker learns fine differences, retains choices across curation and snapshot reload', () => {
   const loaded = { photosById: Object.fromEntries(photos().map((p) => [p.id, p])), scenes: [scene()] };
-  const state = advance(beginCuration(initialState(), loaded), 0);
+  const state = advance(beginCuration(initialState(profileFor(emptyModel())), loaded), 0);
   assert.ok(state.review);
   const learned = applyAnswer(state, 'replace');
   assert.equal(learned.profile.preference!.history.length, 1);
@@ -35,7 +36,7 @@ test('same image pair across regenerated scene IDs cannot inflate evidence', () 
 });
 test('a second tap from the previous question cannot label the next photo pair', () => {
   const loaded = { photosById: Object.fromEntries(photos().map((p) => [p.id, p])), scenes: [scene()] };
-  const state = advance(beginCuration(initialState(), loaded), 0);
+  const state = advance(beginCuration(initialState(profileFor(emptyModel())), loaded), 0);
   const expected = state.review!;
   const next = applyAnswer(state, 'replace', expected);
   assert.ok(next.review); assert.notEqual(next.review.bId, expected.bId);
@@ -56,7 +57,7 @@ test('snapshot version guards and corrupted data cannot silently load wrong feat
 });
 test('scoring preserves source metadata/checkpoints and filters non-person photos immutably', () => {
   const loaded = { photosById: Object.fromEntries(photos().map((p) => [p.id, p])), scenes: [scene()] };
-  const state = beginCuration(initialState(), loaded);
+  const state = beginCuration(initialState(profileFor(emptyModel())), loaded);
   const result = { label: 'portrait', photos: photos().map((p) => ({ id: p.id, person: p.id !== 'p1', gated: false, scores: p.scores! })) };
   const next = acceptSceneScores(state, 's', result);
   assert.ok(!next.photosById.p1); assert.ok(state.photosById.p1); assert.ok(loaded.photosById.p1);
@@ -67,7 +68,7 @@ test('scoring preserves source metadata/checkpoints and filters non-person photo
 });
 test('rescuing a suggestion preserves it without inferring a winner or restoring deleted assets', () => {
   const loaded = { photosById: Object.fromEntries(photos().map((p) => [p.id, p])), scenes: [scene()] };
-  const state = advance(beginCuration(initialState(), loaded), 0); const bId = state.review!.bId;
+  const state = advance(beginCuration(initialState(profileFor(emptyModel())), loaded), 0); const bId = state.review!.bId;
   const rescued = applyRescue(state, bId);
   assert.equal(rescued.profile.preference!.history.length, 0);
   assert.ok(rescued.scenes[0].keptIds.includes(bId)); assert.ok(rescued.photosById[bId].rescued);

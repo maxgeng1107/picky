@@ -59,12 +59,12 @@ export default function ReviewScreen() {
       </View>
 
       <View style={styles.buttons}>
-        <PickyButton label="Keep A" variant="outline" style={styles.half} onPress={() => answer('keepA')} />
-        <PickyButton label="B replaces A" style={styles.half} onPress={() => answer('replace')} />
+        <PickyButton disabled={state.busy} label="Keep A" variant="outline" style={styles.half} onPress={() => answer('keepA')} />
+        <PickyButton disabled={state.busy} label="B replaces A" style={styles.half} onPress={() => answer('replace')} />
       </View>
       <View style={styles.buttons}>
-        <PickyButton label="Keep both" variant="ghost" style={styles.half} onPress={() => answer('keepBoth')} />
-        <PickyButton label="Skip" variant="ghost" style={styles.half} onPress={() => answer('skip')} />
+        <PickyButton disabled={state.busy} label="Keep both" variant="ghost" style={styles.half} onPress={() => answer('keepBoth')} />
+        <PickyButton disabled={state.busy} label="Skip" variant="ghost" style={styles.half} onPress={() => answer('skip')} />
       </View>
 
       {toast}
@@ -98,7 +98,7 @@ function ScoreCompare({ criteria, a, b }: { criteria: Criterion[]; a?: Scores; b
   if (!a || !b) return null;
   return (
     <Card>
-      <ThemedText type="smallBold">Visible attributes (1–5; ties are allowed)</ThemedText>
+      <ThemedText type="smallBold">What Picky sees (1–5, within this scene)</ThemedText>
       {criteria.map((c) => {
         const sa = a[c.key];
         const sb = b[c.key];

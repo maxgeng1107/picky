@@ -1,15 +1,17 @@
 # Picky — as picky as you are
 
-Picky 从你的 A/B 选择中学习，在自己的肖像照片里推荐你更喜欢的那几张。VLM 提取可见属性，本地个人排序器学习偏好；VLM 权重不更新。
+Picky 从你的 A/B 选择中学习，在自己的肖像照片里推荐你更喜欢的那几张。现有手机计数器从 A/B 选择积累偏好；独立实验工具比较新的个人排序器。VLM 权重不更新。
 
 ## 当前状态
 
 - Today / Your call / Your taste 页面、当天相册读取、时间分组、前台新照片检测和本地提醒已实现。
-- 手机默认使用个人 pairwise ranker，偏好和已处理照片 ID 保存到设备，重新挑选和重启保留；损坏的主快照可恢复到上一份备份。Reset 清空两份快照。
-- 手机 API 和真人实验使用相同的固定属性、VLM 提示词和响应校验。允许小数、并列和 null；不强行把每批最好/最差拉成 5/1。
-- 原图保留在手机上。`binned` 表示未推荐；当前没有 Drive 备份，也没有删除操作。
-- 真人盲选实验、训练/测试场景隔离、学习曲线和冻结的旧计数器基线已实现。
-- 27 项回归测试、完整类型检查、lint、Web/server 导出和 iOS JS 导出已通过。本次未运行付费 VLM 请求或 iPhone 真机测试；没有真人准确率结论。
+- 默认保留 main@b3ef92c 的计数器、通用分数、VLM 提示词和 512px 评分输入；没有证据证明新排序器更准，所以不替换默认行为。
+- 保留 Drive JPEG 备份与空间释放；缺少配置、上传失败、内容校验失败或用户取消时不删除。确认过的 JPEG 副本不等同于原始 HEIC/Live Photo 完整备份。
+- 保留偏好/已处理资产 ID 的设备持久化和损坏恢复、严格评分响应校验、内容缓存、超时、调用上限、旧点击防护及类型/lint 修复。
+- 新个人排序器和固定锚点评分仅用于真人盲选实验，默认手机仍用现有流程。
+- 34 项测试通过，包括 100 轮相同输入下默认计数器与旧版一致，以及备份失败/取消不删。真机、真实 Google/Anthropic 调用和真人准确率尚未验收。
+
+详细取舍见 [server/DECISIONS.md](server/DECISIONS.md)。
 
 ## 启动手机应用
 
@@ -35,6 +37,10 @@ npx expo start --tunnel
 iPhone 需允许照片权限，建议准备 `Picky Demo` 相册，放当天拍摄的单人照。若相册不存在，现有流程会从当天照片创建它。每次最多处理 120 张，每组最多 12 张，拍摄时间相隔超过 5 分钟另起一组。照片会发送到 Anthropic 进行视觉分析；原图保留。
 
 手机默认真实数据，Web 默认 mock；`EXPO_PUBLIC_USE_MOCK=1` 可在手机使用 mock。开发时 API 使用 Expo 的开发服务器，校园 Wi-Fi 受限可用 tunnel。安装包上线还需独立部署 API 并配置服务 origin。
+
+Drive 备份需要在同一服务端 `.env` 配置 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REFRESH_TOKEN`（使用 drive.file 范围）。这是配置账号的演示服务，不是多用户 OAuth 登录；不要直接公开部署。
+
+“Back up & free space”会先说明 JPEG 转换限制，再在每张上传被 Drive 确认且校验通过后请求系统删除。未配置 Drive 不提供直接删除 fallback。30 天 expiresAt 只是标签，自动清理尚未实现。
 
 新照片检测发生在打开应用、回到前台或应用运行期间相册变化时；demo 默认 1 分钟无新照片后开始。`EXPO_PUBLIC_IDLE_MINUTES=60` 可改为 60 分钟。后台是预约提醒，不保证 iOS 在后台执行完整选片。失败运行不推进处理检查点，可以修复网络/配置后再试。
 
@@ -76,10 +82,11 @@ npx expo export --platform ios --output-dir dist-ios
 ## 代码位置
 
 - `src/lib/use-picky.tsx`：真实数据流程、持久化、取消和处理检查点。
-- `src/lib/personalization/`：固定属性、个人排序器和非破坏性推荐引擎。
+- `src/lib/taste.ts`：现有默认计数器/选片规则；`personalization/`：仅实验的新排序器。
 - `src/lib/preferences.ts` / `scoring.ts`：快照格式、跨轮保留和响应校验。
-- `src/app/api/select+api.ts` / `server/vision.ts`：共用的 VLM 请求、内容缓存、超时和调用上限。
+- `server/legacy-vision.ts`：保留现有手机提示词，补校验/缓存/限流；`server/vision.ts`：固定锚点实验评分。
+- `server/drive.ts` / `src/lib/backup.ts`：可重用 JPEG 备份、校验确认和仅删除已确认照片的执行逻辑。
 - `server/study.ts` / `real-experiment.ts`：真实标签收集和独立测试。
 - `server/baseline.ts`：冻结于 `main@23f2b9f` 的旧计数器，避免比较时误用同一个新模型。
 
-仍待完成：真人效果评估、自动人脸局部图、按用途区分的个人档案、完整后台调度、Drive 备份和生产部署。当前是单用户单用途的线性模型；概率未校准，矛盾选择不等于用户不在乎。
+仍待完成：真人效果评估、自动人脸局部图、按用途区分的个人档案、完整后台调度、多用户 Drive 授权及生产部署。实验模型是单用户单用途的线性模型，概率未校准；混合选择不等于用户不在乎。

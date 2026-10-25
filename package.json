@@ -49,7 +49,6 @@
     "lint": "expo lint",
     "test:preferences": "node --import tsx --test server/*.test.ts",
     "experiment:preferences": "node --import tsx server/experiment.ts",
-    "server": "node --import tsx server/index.ts",
     "typecheck:backend": "tsc --noEmit -p server/tsconfig.json",
     "evaluate:preferences": "node --import tsx server/evaluate.ts",
     "lint:backend": "eslint src/lib server --config server/eslint.config.cjs",

@@ -12,9 +12,9 @@ export const StatusColors: Record<CriterionStatus, string> = {
 };
 
 export const StatusLabels: Record<CriterionStatus, string> = {
-  confident: 'Confident',
+  confident: 'Repeated support',
   leaning: 'Leaning',
-  doesnt_care: "Doesn't care",
+  doesnt_care: 'Mixed evidence',
   avoid: 'Avoids',
   unknown: 'No evidence yet',
 };

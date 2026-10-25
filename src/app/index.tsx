@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SceneCard } from '@/components/picky/scene-card';
 import { Card, PickyButton, Screen } from '@/components/picky/ui';
 import { ThemedText } from '@/components/themed-text';
-import { Accent } from '@/constants/picky';
+import { Accent, formatMb } from '@/constants/picky';
 import { Spacing } from '@/constants/theme';
 import { usePicky } from '@/hooks/use-picky';
 
@@ -45,7 +45,7 @@ export default function TodayScreen() {
           <ThemedText style={styles.emptyTitle}>Nothing tidied yet</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
             When you stop shooting, Picky suggests photos and asks for your choice when it needs help.
-            All originals stay on your phone.
+            Originals stay on your phone until you confirm backup and removal.
           </ThemedText>
           {!state.watch ? <PickyButton label="Pick now" onPress={actions.simulateNight} loading={state.busy} /> : null}
         </Card>
@@ -69,12 +69,13 @@ export default function TodayScreen() {
       <Card style={styles.storage}>
         <View style={{ flex: 1 }}>
           <ThemedText type="small" themeColor="textSecondary">
-            Originals remain on your phone
+            Estimated space freed
           </ThemedText>
-          <ThemedText style={styles.freed}>{notSuggested} not suggested</ThemedText>
+          <ThemedText style={styles.freed}>~{formatMb(state.freedBytes)}</ThemedText>
         </View>
         <PickyButton
-          label="About originals"
+          label={notSuggested ? 'Back up & free space' : 'Nothing to free'}
+          disabled={!notSuggested || state.busy}
           onPress={actions.freeUpSpace}
           loading={state.busy}
         />

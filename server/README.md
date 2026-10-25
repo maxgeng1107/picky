@@ -1,12 +1,14 @@
 # Picky 第一版：固定 VLM + 个人成对偏好模型
 
-VLM 仅提取可见属性，不推断用户喜欢哪张。用户的明确二选一在本地训练带 L2 正则的 pairwise logistic ranker，VLM 权重不更新。这不是 VLM pretraining，也不是 RL。手机已默认接入，尚未完成真机和真人准确率验收。
+VLM 仅提取可见属性，不推断用户喜欢哪张。用户的明确二选一在本地训练带 L2 正则的 pairwise logistic ranker，VLM 权重不更新。这不是 VLM pretraining，也不是 RL。排序器仅用于实验，尚未完成真机和真人准确率验收。
 
 ## 接入状态
 
-手机默认使用个人 pairwise ranker；无需额外环境开关，也不再维护两套手机 provider。偏好和已处理资产 ID 存在设备，下一轮和重启保留；有上一份快照恢复机制。UI hook 保持手机真实 / web mock 的切换。
+默认手机继续使用现有计数器和 VLM 评分规则；新的 pairwise ranker 只在本地盲选实验中比较。它尚未证明更好，不能把模拟优势当作替换依据。默认流程保留设备偏好与已处理照片 ID 的持久化、损坏恢复和旧点击保护。
 
-手机 `src/app/api/select+api.ts` 和本地真人实验共用 `server/vision.ts` 的提示词、校验、缓存、超时和调用上限。原图保持不动，删除操作禁用。实验结果的 `currentMainCounterAccuracy` 字段指冻结的 `main@23f2b9f` 旧基线，并非这次升级后的手机引擎。
+手机评分由 `legacy-vision.ts` 保留 main 提示词，同时增加响应校验、内容缓存、超时和调用上限。实验使用 `vision.ts` 的固定锚点。两种评分的缓存和模型文件不混用。指标 `currentMainCounterAccuracy` 是相同固定特征输入下冻结的旧算法基线，不是对完整默认 VLM 流程准确率的测量。
+
+Drive 保留：先校验 JPEG 副本上传成功再删除；未配置或失败不删，且不会把 30 天标签当作自动清理。详见 `DECISIONS.md`。
 
 ## 直接做真人实验（无需先接手机）
 
@@ -33,25 +35,7 @@ npm run lint:backend
 npm run experiment:preferences
 ```
 
-在忽略的 `server/.env` 中本地填写（不要提交或把密钥放到移动端）：
-
-```dotenv
-LLM_API_KEY=your-anthropic-api-key
-ANTHROPIC_MODEL=your-enabled-vision-model-id
-HOST=0.0.0.0
-PORT=3001
-MAX_VLM_CALLS=60
-```
-
-默认只监听 127.0.0.1；上面的 HOST 用于受信任局域网真机演示。服务没有用户认证、TLS 或多租户隔离，不要直接公开部署。浏览器 Origin 请求被拒绝。每进程最多 60 次 VLM 请求（失败也计数），串行请求，60 秒超时，无自动重试；这是调用次数上限，不是美元费用上限，重启会重置。建议同时在供应商后台设置消费限额。
-
-```bash
-npm run server
-```
-
-手机应用只需根目录 `.env` 的服务端 key，由 Expo API route 提供评分，运行 `npx expo start --tunnel`。无需 EXPO_PUBLIC_PERSONAL_RANKER 或 EXPO_PUBLIC_API_URL。最多 120 张当天肖像，每个场景最多 12 张。图片发送 Anthropic 提取属性；本地只保存个人模型/比较特征和资产 ID，原图不删除。
-
-`npm run server` 仍提供一个可选的 3001 端口兼容接口，返回 scores/gated/ranking；它用于脚本实验，不是手机 API 的部署替代品。真人实验工具用 `npm run experiment:real`，端口 3002，UI 收集真实标签；两者不要混淆。
+手机运行 `npx expo start --tunnel`，使用根目录 `.env` 的服务端 key；实验运行 `npm run experiment:real`。删除了重复的独立 3001 评分服务。两种流程均限制单次请求、串行付费请求和调用次数，调用上限不等同于美元上限。
 
 ## 实现边界
 
@@ -63,7 +47,7 @@ npm run server
 - 服务支持可选 `faceBase64` 局部图，但客户端**尚未自动检测/裁剪人脸**。本版没有声称完整的“全图 + 人脸局部”细节识别。
 - 不可分辨的候选一并保留。询问策略是 `p(1-p) × 特征差平方和` 的启发式，最多 3 对/场景，尚未证明比随机选对更有效。
 - 与新交接文档的差异：本实验模型没有沿用旧计数器的“分差 ≤2 留 1–3 张”规则，因为两套分数尺度不同；也未实现 Keep both 自动提高上限。不可辨识的多张图允许全部保留。无脸/无法评估的图不进入不保留建议，但仍需要 VLM 分类；尚未实现上传前的人脸筛选。
-- 分数概率未校准。没有自动删除、Drive 备份、长期后台 agent。真实效果需要下面的独立留出集。
+- 实验排序器概率未校准。默认手机保留人工确认后的 Drive JPEG 备份/删除；实验工具本身不删照片。长期后台执行未实现。真实效果需要下面的独立留出集。
 
 ## 真人实验数据格式
 
