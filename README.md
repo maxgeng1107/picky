@@ -20,24 +20,31 @@ Picky helps smartphone photographers reclaim the time and attention spent choosi
 
 ## Why Picky is invisible
 
-**You never open a photo cleaner. You just take photos.** Picky has no gallery to browse and no sorting screen to work through. The only interface you have to deal with is one notification and a few taps.
+**You just take photos. Picky does the rest in the background.**
 
-| What you do | What Picky does on its own |
-| --- | --- |
-| Take photos, as usual — 322 of them in our test | Notices the new photos. Ignores screenshots, food and scenery; only photos of a person count |
-| Stop shooting | Waits until the shoot is over (no new photo for a while), then splits the photos into scenes and has Claude score every shot |
-| *Nothing* | Keeps the 1–3 photos per scene you would post, sets the rest aside, remembers your taste |
-| Get **one** notification | "Picky tidied 314 photos · a few need your call" |
-| Answer a few A-or-B taps (optional) | Learns *why* you choose — e.g. "face looks smaller", not "facing the camera" — and re-ranks every other scene instantly |
-| Tap **once** | Clears what you didn't keep and frees the space (~1 GB in our test) |
+1. **While you shoot, Picky works behind the scenes.** It notices new photos of you and ignores screenshots, food and scenery. You don't open anything.
+2. **When you're done, Picky reminds you once.** A while after your last photo, you get one notification: your best shots are picked, and the rest are ready to delete.
+3. **One tap frees the space.** You confirm, and the photos Picky didn't keep are cleared from your phone.
+4. **If Picky removed a photo you like, tell it.** Compare two photos (A or B) and pick the one you prefer. Picky updates what it knows about your taste.
 
-**Without Picky:** open Photos, scroll through 322 near-identical shots, compare 29 scenes in your head, delete 259 photos. **With Picky:** one notification, a few taps, one confirmation.
+### It learns you, like a Nest thermostat or TikTok's feed
 
-**It gets more invisible the more you use it.** Picky only asks when it isn't sure. In our demo, after the first **2** answers, the number of open questions dropped from **51 to 20**, because Picky could already decide the other scenes your way. As your taste becomes clear, the taps go toward zero and the notification becomes "done — 1 GB freed".
+A Nest thermostat learns the temperature you like from the times you adjust it. TikTok learns what you like from what you watch. Picky learns which photos of you *you* like from the times you choose A or B.
 
-**What the demo video shows.** The video starts where your attention starts: everything before it — noticing the photos, grouping, scoring, picking — happened without any input. It then shows the only moments that need you: a few A/B taps and the one-tap cleanup.
+- **At first,** Picky picks like any photo app, so it asks you to compare more often.
+- **Over time,** it figures out your rule (for example: you care about whether your face looks smaller, not about the angle) and asks less and less. In our demo, after just **2** answers the number of open questions dropped from **51 to 20**.
+- **The goal:** you only confirm the cleanup. Picky already keeps your favorite photos for you.
 
-**Honest limits today.** iOS doesn't let apps run the moment a photo is taken, so in this prototype Picky notices new photos when it is opened or comes back to the foreground, and a scheduled reminder fires when the shoot looks over. A native build would curate in the background (e.g. overnight while charging); Android can trigger on each new photo. More detail in [Built for Invisible Interfaces](#built-for-invisible-interfaces).
+### Your photos stay yours
+
+Before anything is deleted, Picky backs up the photos to **your own private Google Drive** — not a shared Picky server. Picky doesn't keep your photos. To judge them, small resized copies are sent to the AI model, and your taste profile stays on your phone.
+
+### What you save
+
+- **Storage:** one hour of shooting in our test produced **322 photos**; Picky kept **55** and freed about **1 GB**.
+- **Time:** in the first days, you spend about as much time as sorting yourself, because you are teaching Picky. The more you use it, the less you do — until all that's left is one tap.
+
+*Prototype note: iOS doesn't let apps run the moment a photo is taken, so today Picky notices new photos when it is opened or comes back to the foreground, and a reminder fires when the shoot looks over. A native build would run in the background (e.g. overnight while charging); Android can react to each new photo. Google Drive backup is built but was not connected in the recorded demo, so the demo deletes to Recently Deleted (kept 30 days). More detail in [Built for Invisible Interfaces](#built-for-invisible-interfaces).*
 
 ## A global habit. A recurring problem.
 
