@@ -14,7 +14,7 @@ import {
   toBase64,
   toFullJpegBase64,
 } from '@/lib/photos';
-import { advance, applyAnswer, applyRescue, emptyProfile } from '@/lib/taste';
+import { advance, applyAnswer, applyRescue, emptyProfile, withHistory } from '@/lib/taste';
 import type { PhotoId, PickyActions, PickyContextValue, PickyState } from '@/lib/types';
 
 function initialState(): PickyState {
@@ -102,7 +102,14 @@ export function PickyProvider({ children }: { children: ReactNode }) {
         next = { ...next, photosById, scenes: next.scenes.map((x) => (x.id === s.id ? scene : x)) };
       }
       next = { ...next, scenes: next.scenes.filter((s) => s.photoIds.length > 0) };
-      const curated = { ...advance(next, 0), busy: false, status: undefined, watch: undefined };
+      const curated = {
+        ...advance(next, 0),
+        busy: false,
+        status: undefined,
+        watch: undefined,
+        profileHistory: [next.profile],
+        myPicks: stateRef.current.myPicks, // keep marked picks across re-runs (same photo ids)
+      };
       setState(curated);
       await scheduleNightNotification(curated);
     } catch (e) {
@@ -211,7 +218,14 @@ export function PickyProvider({ children }: { children: ReactNode }) {
       loadAlbum,
       curateNextScene: async () => setState((s) => advance(s, s.review?.index ?? 0)),
       simulateNight,
-      answer: async (a) => setState((s) => applyAnswer(s, a)),
+      answer: async (a) => setState((s) => withHistory(s, applyAnswer(s, a))),
+      setMyPick: (sceneId, photoId) =>
+        setState((s) => {
+          const myPicks = { ...s.myPicks };
+          if (myPicks[sceneId] === photoId) delete myPicks[sceneId];
+          else myPicks[sceneId] = photoId;
+          return { ...s, myPicks };
+        }),
       freeUpSpace,
       rescue: (id) => setState((s) => applyRescue(s, id)),
       reset: () => {

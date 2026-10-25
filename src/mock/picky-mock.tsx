@@ -31,6 +31,7 @@ import type {
   Scores,
   TasteProfile,
 } from '@/lib/types';
+import { withHistory } from '@/lib/taste';
 
 const DIFF_MIN = 2;
 const MAX_KEEP = 3; // keep 1–3 photos per scene
@@ -371,7 +372,13 @@ export function PickyMockProvider({ children }: { children: ReactNode }) {
   const simulateNight = useCallback(async () => {
     setState((s) => ({ ...s, busy: true }));
     await sleep(1200);
-    const curated = { ...advance(makeInitialState(), 0), freedBytes: stateRef.current.freedBytes };
+    const fresh = makeInitialState();
+    const curated = {
+      ...advance(fresh, 0),
+      freedBytes: stateRef.current.freedBytes,
+      profileHistory: [fresh.profile],
+      myPicks: stateRef.current.myPicks,
+    };
     setState(curated);
     await scheduleNightNotification(curated);
   }, []);
@@ -402,7 +409,14 @@ export function PickyMockProvider({ children }: { children: ReactNode }) {
         });
       },
       simulateNight,
-      answer: async (a) => setState((s) => applyAnswer(s, a)),
+      answer: async (a) => setState((s) => withHistory(s, applyAnswer(s, a))),
+      setMyPick: (sceneId, photoId) =>
+        setState((s) => {
+          const myPicks = { ...s.myPicks };
+          if (myPicks[sceneId] === photoId) delete myPicks[sceneId];
+          else myPicks[sceneId] = photoId;
+          return { ...s, myPicks };
+        }),
       freeUpSpace,
       rescue: (id) =>
         setState((s) => {

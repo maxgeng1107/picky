@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Card, Photo } from '@/components/picky/ui';
 import { ThemedText } from '@/components/themed-text';
@@ -10,10 +10,14 @@ export function SceneCard({
   scene,
   photosById,
   profile,
+  myPick,
+  onPick,
 }: {
   scene: Scene;
   photosById: Record<PhotoId, PhotoT>;
   profile: TasteProfile;
+  myPick?: PhotoId;
+  onPick?: (photoId: PhotoId) => void;
 }) {
   const kept = scene.keptIds.map((id) => photosById[id]);
   const binned = scene.photoIds.map((id) => photosById[id]).filter((p) => p.status === 'binned');
@@ -87,6 +91,26 @@ export function SceneCard({
           </ScrollView>
         </View>
       ) : null}
+
+      {onPick ? (
+        <View style={{ gap: Spacing.two }}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Accuracy test: tap the photo you picked beforehand {myPick ? '· ⭐ marked' : ''}
+          </ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.binRow}>
+            {scene.photoIds.map((id) => photosById[id]).filter(Boolean).map((p) => (
+              <Pressable key={p.id} onPress={() => onPick(p.id)}>
+                <Photo
+                  uri={p.uri}
+                  style={[styles.thumb, myPick === p.id && styles.myPick]}
+                  dimmed={!!myPick && myPick !== p.id}
+                  badge={myPick === p.id ? '⭐' : undefined}
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
     </Card>
   );
 }
@@ -103,4 +127,5 @@ const styles = StyleSheet.create({
   binRow: { flexDirection: 'row', gap: Spacing.two },
   alsoKept: { width: 96 },
   thumb: { width: 64 },
+  myPick: { borderWidth: 3, borderColor: '#F5B700' },
 });
