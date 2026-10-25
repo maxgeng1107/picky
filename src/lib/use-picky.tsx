@@ -88,11 +88,29 @@ export function PickyProvider({ children }: { children: ReactNode }) {
       await cancelNotification(idleNotificationId.current);
       idleNotificationId.current = null;
       let next: PickyState = { ...initialState(), ...loaded, freedBytes: stateRef.current.freedBytes, busy: true };
-      setState({ ...next, status: `Looking at ${next.scenes.length} scenes…` });
-      // score all scenes in parallel; one Claude call per scene
-      const scored = await Promise.all(next.scenes.map((s) => scoreScene(next, s.id)));
-      for (const [i, s] of next.scenes.entries()) {
+      const sceneCount = next.scenes.length;
+      setState({ ...next, status: `Looking at ${sceneCount} scenes…` });
+      // one Claude call per scene, two at a time, each retried once; a scene that still fails is
+      // left untouched (its photos are never binned) instead of failing the whole run
+      const base = next;
+      const scored: (PickyState | null)[] = new Array(sceneCount).fill(null);
+      let done = 0;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < sceneCount) {
+          const i = cursor++;
+          const id = base.scenes[i].id;
+          scored[i] = await scoreScene(base, id).catch(() => scoreScene(base, id)).catch(() => null);
+          done += 1;
+          setState((s) => ({ ...s, status: `Looked at ${done} of ${sceneCount} scenes…` }));
+        }
+      };
+      await Promise.all([worker(), worker()]);
+      if (scored.every((s) => s === null)) throw new Error('Scoring failed for every scene. Check the dev server.');
+      const failedIds = new Set(base.scenes.filter((_, i) => scored[i] === null).map((s) => s.id));
+      for (const [i, s] of base.scenes.entries()) {
         const sceneState = scored[i];
+        if (!sceneState) continue;
         const scene = sceneState.scenes.find((x) => x.id === s.id)!;
         const photosById = { ...next.photosById };
         for (const id of s.photoIds) {
@@ -101,7 +119,15 @@ export function PickyProvider({ children }: { children: ReactNode }) {
         }
         next = { ...next, photosById, scenes: next.scenes.map((x) => (x.id === s.id ? scene : x)) };
       }
-      next = { ...next, scenes: next.scenes.filter((s) => s.photoIds.length > 0) };
+      // drop scenes that couldn't be scored (and their photos) from this run
+      const photosById = { ...next.photosById };
+      for (const s of next.scenes) if (failedIds.has(s.id)) for (const id of s.photoIds) delete photosById[id];
+      next = {
+        ...next,
+        photosById,
+        scenes: next.scenes.filter((s) => s.photoIds.length > 0 && !failedIds.has(s.id)),
+        error: failedIds.size > 0 ? `${failedIds.size} scene(s) couldn't be scored and were left untouched.` : undefined,
+      };
       const curated = {
         ...advance(next, 0),
         busy: false,

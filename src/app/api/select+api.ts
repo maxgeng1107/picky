@@ -89,6 +89,8 @@ export async function POST(request: Request) {
     ).join('\n')}`,
   });
 
+  const started = Date.now();
+  console.log(`[picky] scoring ${body.sceneId}: ${photos.length} photos…`);
   try {
     const response = await client.beta.messages.create({
       model: MODEL,
@@ -96,7 +98,8 @@ export async function POST(request: Request) {
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM,
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: schema() } },
+      // low effort keeps a scene well under the tunnel's request time; scoring is perception, not reasoning
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: schema() } },
       messages: [{ role: 'user', content }],
     });
     if (response.stop_reason === 'refusal') {
@@ -123,8 +126,10 @@ export async function POST(request: Request) {
     const json = JSON.stringify(result);
     await mkdir(CACHE_DIR, { recursive: true });
     await writeFile(cacheFile, json);
+    console.log(`[picky] scored ${body.sceneId} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
     return new Response(json, { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
+    console.error(`[picky] scoring ${body.sceneId} failed after ${((Date.now() - started) / 1000).toFixed(1)}s:`, e);
     if (e instanceof Anthropic.AuthenticationError) {
       return Response.json({ error: 'Invalid ANTHROPIC_API_KEY' }, { status: 500 });
     }
