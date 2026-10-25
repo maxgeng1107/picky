@@ -47,6 +47,8 @@ export interface Criterion {
 export interface TasteProfile {
   criteria: Criterion[];
   summary?: string;
+  /** Experimental pairwise model; absent from the default phone counter. */
+  preference?: import('./personalization/taste').PreferenceModel;
 }
 
 export type Answer = 'keepA' | 'replace' | 'keepBoth' | 'skip';
@@ -69,9 +71,9 @@ export interface PickyActions {
   loadAlbum(): Promise<void>; // read album + split scenes
   curateNextScene(): Promise<void>; // /api/select for the next unreviewed scene
   simulateNight(): Promise<void>; // curate all scenes, then schedule the "3 need your call" local notification (5 s)
-  answer(a: Answer): Promise<void>; // A vs B result → score diffs → update profile (instant, no LLM)
-  freeUpSpace(): Promise<void>; // upload binned → delete from phone
-  rescue(id: PhotoId): void; // COULD: Cloud Bin → kept, learn rescued-vs-kept
+  answer(a: Answer, expected?: NonNullable<PickyState['review']>): Promise<void>; // expected guards stale/double taps
+  freeUpSpace(): Promise<void>; // back up JPEG copies, verify, then request native deletion
+  rescue(id: PhotoId): void; // keep another original without inferring a relative preference
   setMyPick?(sceneId: string, photoId: PhotoId): void; // accuracy test: mark (or unmark) your pick
   reset(): void;
 }

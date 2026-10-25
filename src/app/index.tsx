@@ -12,7 +12,7 @@ export default function TodayScreen() {
   const { state, actions } = usePicky();
   const photos = Object.values(state.photosById);
   const curated = state.scenes.filter((s) => s.keptIds.length > 0);
-  const toFree = photos.filter((p) => p.status === 'binned' && !p.deleted).reduce((n, p) => n + (p.sizeBytes ?? 0), 0);
+  const notSuggested = photos.filter((p) => p.status === 'binned' && !p.deleted).length;
   const asks = state.review ? state.review.total - state.review.index : 0;
 
   const notice = state.error ? (
@@ -44,8 +44,8 @@ export default function TodayScreen() {
         <Card style={styles.empty}>
           <ThemedText style={styles.emptyTitle}>Nothing tidied yet</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
-            Just take photos. When you stop shooting, Picky keeps the ones you would keep, moves the rest to your
-            Cloud Bin, and only pings you when it needs your call.
+            When you stop shooting, Picky suggests photos and asks for your choice when it needs help.
+            Originals stay on your phone until you confirm backup and removal.
           </ThemedText>
           {!state.watch ? <PickyButton label="Pick now" onPress={actions.simulateNight} loading={state.busy} /> : null}
         </Card>
@@ -69,14 +69,14 @@ export default function TodayScreen() {
       <Card style={styles.storage}>
         <View style={{ flex: 1 }}>
           <ThemedText type="small" themeColor="textSecondary">
-            Freed so far
+            Estimated space freed
           </ThemedText>
-          <ThemedText style={styles.freed}>{formatMb(state.freedBytes)}</ThemedText>
+          <ThemedText style={styles.freed}>~{formatMb(state.freedBytes)}</ThemedText>
         </View>
         <PickyButton
-          label={toFree > 0 ? `Free up ${formatMb(toFree)}` : 'Nothing to free'}
+          label={notSuggested ? 'Back up & free space' : 'Nothing to free'}
+          disabled={!notSuggested || state.busy}
           onPress={actions.freeUpSpace}
-          disabled={toFree === 0}
           loading={state.busy}
         />
       </Card>
@@ -114,5 +114,5 @@ const styles = StyleSheet.create({
   bannerTitle: { color: '#fff', fontSize: 20, fontWeight: 800 },
   bannerBody: { color: '#fff', fontSize: 16, fontWeight: 600 },
   storage: { flexDirection: 'row', alignItems: 'center' },
-  freed: { fontSize: 28, lineHeight: 34, fontWeight: 800 },
+  freed: { fontSize: 20, lineHeight: 26, fontWeight: 700 },
 });

@@ -106,9 +106,9 @@ function summarize(criteria: Criterion[]): string | undefined {
   const avoids = criteria.filter((c) => c.status === 'avoid').map((c) => c.name);
   const ignores = criteria.filter((c) => c.status === 'doesnt_care').map((c) => c.name);
   const parts: string[] = [];
-  if (cares.length) parts.push(`You care about ${cares.join(' and ')}.`);
-  if (ignores.length) parts.push(`You don't care about ${ignores.join(' or ')}.`);
-  if (avoids.length) parts.push(`You avoid ${avoids.join(' and ')}.`);
+  if (cares.length) parts.push(`Repeated support for ${cares.join(' and ')}.`);
+  if (ignores.length) parts.push(`Mixed evidence for ${ignores.join(' or ')}.`);
+  if (avoids.length) parts.push(`Choices tend away from ${avoids.join(' and ')}.`);
   return parts.length ? parts.join(' ') : undefined;
 }
 
@@ -205,7 +205,7 @@ function pickChallengers(
 }
 
 export function reasonFor(kept: Photo, others: Photo[], profile: TasteProfile): string {
-  if (!hasEvidence(profile)) return 'Kept: sharpest, biggest smile — what any photo app would pick';
+  if (!hasEvidence(profile)) return 'Suggested using the default ranking before personal feedback.';
   let best: { c: Criterion; k: number; o: number } | null = null;
   for (const c of profile.criteria) {
     if (c.status !== 'confident' && !(c.status === 'leaning' && c.support > c.against)) continue;
@@ -287,9 +287,10 @@ export function advance(state: PickyState, index: number): PickyState {
   };
 }
 
-export function applyAnswer(state: PickyState, a: Answer): PickyState {
+export function applyAnswer(state: PickyState, a: Answer, expected?: NonNullable<PickyState['review']>): PickyState {
   const review = state.review;
   if (!review) return state;
+  if (expected && (review.sceneId !== expected.sceneId || review.aId !== expected.aId || review.bId !== expected.bId || review.index !== expected.index)) return state;
   const { sceneId, aId, bId } = review;
   const A = state.photosById[aId];
   const B = state.photosById[bId];
@@ -327,7 +328,7 @@ export function applyAnswer(state: PickyState, a: Answer): PickyState {
 
 // Remember the profile after every answer that taught something (for the accuracy curve).
 export function withHistory(prev: PickyState, next: PickyState): PickyState {
-  if (next.profile === prev.profile) return next;
+  if (next.profile === prev.profile || next.profile.criteria.every((c, i) => c.support === prev.profile.criteria[i]?.support && c.against === prev.profile.criteria[i]?.against)) return next;
   return { ...next, profileHistory: [...(prev.profileHistory ?? [prev.profile]), next.profile] };
 }
 
@@ -344,7 +345,7 @@ export function evaluate(state: PickyState, profile: TasteProfile, picks: Record
     const pick = picks[scene.id];
     if (!pick) continue;
     const candidates = scene.photoIds.map((id) => state.photosById[id]).filter((p) => p && !p.gated && p.scores);
-    if (candidates.length === 0) continue;
+    if (!candidates.some((p) => p.id === pick)) continue;
     total += 1;
     const byTaste = [...candidates].sort((a, b) => tasteOrGeneric(b) - tasteOrGeneric(a));
     if (pickKeepers(byTaste, tasteOrGeneric).some((p) => p.id === pick)) picky += 1;
@@ -356,14 +357,14 @@ export function evaluate(state: PickyState, profile: TasteProfile, picks: Record
 
 export function applyRescue(state: PickyState, id: string): PickyState {
   const photo = state.photosById[id];
+  if (!photo || photo.deleted) return state;
   const scene = state.scenes.find((sc) => sc.id === photo.sceneId);
   if (!scene) return state;
-  const kept = state.photosById[scene.keptIds[0]];
-  const profile = learn(state.profile, photo.scores, kept?.scores);
+  const profile = state.profile; // Keeping an extra original does not express a relative winner.
   return {
     ...state,
     profile,
-    scenes: state.scenes.map((sc) => (sc.id === scene.id ? { ...sc, keptIds: [...sc.keptIds, id] } : sc)),
+    scenes: state.scenes.map((sc) => (sc.id === scene.id ? { ...sc, keptIds: [...new Set([...sc.keptIds, id])] } : sc)),
     photosById: { ...state.photosById, [id]: { ...photo, status: 'kept', rescued: true, deleted: false } },
   };
 }

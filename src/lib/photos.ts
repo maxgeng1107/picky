@@ -1,4 +1,5 @@
 // Read today's photos from the "Picky Demo" album, split them into scenes, and shrink them for Claude.
+import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as MediaLibrary from 'expo-media-library/legacy';
 
@@ -8,7 +9,8 @@ export const ALBUM_NAME = 'Picky Demo';
 export const TODAY_ONLY = true; // set to false if the demo photos weren't shot today
 export const SCENE_GAP_MIN = 5; // a gap longer than this starts a new scene
 // No new photo for this long = the shoot is over, so Picky curates. Product: 60. Demo default: 1.
-export const IDLE_MINUTES = Number(process.env.EXPO_PUBLIC_IDLE_MINUTES ?? 1);
+const idleMinutes = Number(process.env.EXPO_PUBLIC_IDLE_MINUTES ?? 1);
+export const IDLE_MINUTES = Number.isFinite(idleMinutes) && idleMinutes > 0 ? idleMinutes : 1;
 const MAX_PHOTOS_PER_SCENE = 12;
 
 function startOfToday() {
@@ -19,7 +21,7 @@ function startOfToday() {
 
 // Cheap check used for auto-detect: capture times of today's photos in the whole camera roll
 // (the Camera app saves to Recents, never to a custom album).
-export async function peekTodaysPhotoTimes(): Promise<number[]> {
+export async function peekTodaysPhotos(): Promise<{ id: string; takenAt: number }[]> {
   const perm = await MediaLibrary.requestPermissionsAsync();
   if (!perm.granted) return [];
   const page = await MediaLibrary.getAssetsAsync({
@@ -28,7 +30,7 @@ export async function peekTodaysPhotoTimes(): Promise<number[]> {
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
     first: 300,
   });
-  return page.assets.map((a) => a.creationTime);
+  return page.assets.map((a) => ({ id: a.id, takenAt: a.creationTime }));
 }
 
 // Put today's photos from the camera roll into the "Picky Demo" album (creating it if needed),
@@ -40,6 +42,7 @@ async function syncTodayIntoAlbum(): Promise<MediaLibrary.Album> {
     sortBy: [[MediaLibrary.SortBy.creationTime, false]],
     first: 300,
   });
+  if (today.hasNextPage) throw new Error('This demo supports up to 300 photos taken today. Use a smaller test photo library.');
   let album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
   if (!album) {
     if (today.assets.length === 0) throw new Error('No photos taken today yet. Take a few selfies and try again.');
@@ -79,6 +82,7 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
     first: 300,
   });
   const assets = [...page.assets].sort((a, b) => a.creationTime - b.creationTime);
+  if (page.hasNextPage) throw new Error('This demo supports up to 300 photos per run. Use a smaller test photo library.');
   if (assets.length === 0) {
     throw new Error(
       TODAY_ONLY ? `No photos taken today in "${ALBUM_NAME}".` : `The "${ALBUM_NAME}" album is empty.`,
@@ -119,23 +123,35 @@ export async function loadTodaysScenes(): Promise<{ photosById: Record<PhotoId, 
   return { photosById, scenes };
 }
 
-// ~512 px wide JPEG as base64 — small enough to send a whole scene to Claude in one request.
+// Preserve main scoring resolution/quality; release native image references and generated cache.
 export async function toBase64(uri: string): Promise<string> {
-  const image = await ImageManipulator.manipulate(uri).resize({ width: 512 }).renderAsync();
-  const result = await image.saveAsync({ base64: true, compress: 0.7, format: SaveFormat.JPEG });
-  if (!result.base64) throw new Error('Could not read a photo');
-  return result.base64;
+  const context = ImageManipulator.manipulate(uri);
+  const references: { release(): void }[] = [];
+  try {
+    context.resize({ width: 512 }); // Preserve the current main scoring input during evaluation.
+    const image = await context.renderAsync(); references.push(image);
+    const result = await image.saveAsync({ base64: true, compress: 0.7, format: SaveFormat.JPEG });
+    if (!result.base64) throw new Error('Could not read a photo');
+    if (result.uri !== uri) {
+      try { new File(result.uri).delete(); } catch { /* Cache cleanup failure cannot invalidate encoding. */ }
+    }
+    return result.base64;
+  } finally { references.forEach((ref) => ref.release()); context.release(); }
 }
 
-// Full-resolution JPEG for the Drive backup (HEIC photos are converted; Live Photo motion isn't kept).
+// Full-resolution JPEG copy; original HEIC format, metadata and Live Photo motion are not guaranteed.
 export async function toFullJpegBase64(uri: string): Promise<string> {
-  const image = await ImageManipulator.manipulate(uri).renderAsync();
-  const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
-  if (!result.base64) throw new Error('Could not read a photo');
-  return result.base64;
+  const context = ImageManipulator.manipulate(uri);
+  try {
+    const image = await context.renderAsync();
+    try {
+      const result = await image.saveAsync({ base64: true, compress: 0.9, format: SaveFormat.JPEG });
+      if (!result.base64) throw new Error('Could not encode JPEG backup.');
+      if (result.uri !== uri) { try { new File(result.uri).delete(); } catch { /* Best-effort generated-cache cleanup. */ } }
+      return result.base64;
+    } finally { image.release(); }
+  } finally { context.release(); }
 }
-
 export async function deleteFromPhone(ids: PhotoId[]): Promise<boolean> {
-  if (ids.length === 0) return true;
-  return MediaLibrary.deleteAssetsAsync(ids);
+  return ids.length ? MediaLibrary.deleteAssetsAsync(ids) : true;
 }

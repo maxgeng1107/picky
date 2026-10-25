@@ -346,14 +346,11 @@ async function scheduleNightNotification(state: PickyState) {
   const { status } = await Notifications.requestPermissionsAsync();
   if (status !== 'granted') return;
   const photos = Object.values(state.photosById);
-  const binnedMb = photos
-    .filter((p) => p.status === 'binned' && !p.deleted)
-    .reduce((n, p) => n + (p.sizeBytes ?? 0), 0) / MB;
   const asks = state.review ? state.review.total - state.review.index : 0;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: `Picky tidied ${photos.length} photos`,
-      body: `${asks} need your call · Free up ${Math.round(binnedMb)} MB`,
+      body: `${asks} comparisons to review · Demo mode, originals preserved`,
       data: { screen: 'review' },
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5 },
@@ -384,19 +381,7 @@ export function PickyMockProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const freeUpSpace = useCallback(async () => {
-    setState((s) => ({ ...s, busy: true }));
-    await sleep(1500);
-    setState((s) => {
-      let freed = 0;
-      const photosById = { ...s.photosById };
-      for (const p of Object.values(photosById)) {
-        if (p.status === 'binned' && !p.deleted) {
-          freed += p.sizeBytes ?? 0;
-          photosById[p.id] = { ...p, deleted: true, driveFileId: `drive-${p.id}` };
-        }
-      }
-      return { ...s, photosById, freedBytes: s.freedBytes + freed, busy: false };
-    });
+    setState((s) => ({ ...s, error: 'Demo mode uses sample photos. Originals are preserved; backup and deletion are not connected.' }));
   }, []);
 
   const actions = useMemo<PickyActions>(

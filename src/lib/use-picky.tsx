@@ -1,273 +1,190 @@
-// The real usePicky(): today's photos from the "Picky Demo" album, scored by Claude via /api/select,
-// curated and learned by the engine in taste.ts. Same shape as src/mock/picky-mock.tsx.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import { isDriveConfigured, selectScene, uploadToDrive } from './api';
+import { backupThenDelete } from './backup';
+import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from './notify';
+import { IDLE_MINUTES, loadTodaysScenes, onLibraryChange, peekTodaysPhotos, toBase64, toFullJpegBase64, deleteFromPhone } from './photos';
+import { advance, applyAnswer, applyRescue, emptyProfile, withHistory } from './taste';
+import { beginCuration, decodePreferences, encodePreferences, initialState, recoverPreferences } from './preferences';
+import { scoreCurationScenes } from './curation';
+import type { PickyActions, PickyContextValue, PickyState } from './types';
 
-import { isDriveConfigured, selectScene, uploadToDrive } from '@/lib/api';
-import { cancelNotification, scheduleIdleNotification, scheduleNightNotification } from '@/lib/notify';
-import {
-  deleteFromPhone,
-  IDLE_MINUTES,
-  loadTodaysScenes,
-  onLibraryChange,
-  peekTodaysPhotoTimes,
-  toBase64,
-  toFullJpegBase64,
-} from '@/lib/photos';
-import { advance, applyAnswer, applyRescue, emptyProfile, withHistory } from '@/lib/taste';
-import type { PhotoId, PickyActions, PickyContextValue, PickyState } from '@/lib/types';
-
-function initialState(): PickyState {
-  return { photosById: {}, scenes: [], profile: emptyProfile(), review: null, busy: false, freedBytes: 0 };
-}
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-// Score one scene with Claude and fold the result into the state (no picking yet).
-async function scoreScene(state: PickyState, sceneId: string): Promise<PickyState> {
-  const scene = state.scenes.find((s) => s.id === sceneId)!;
-  const photos = await Promise.all(
-    scene.photoIds.map(async (id) => ({ id, imageBase64: await toBase64(state.photosById[id].uri) })),
-  );
-  const result = await selectScene(sceneId, photos);
-  const byId = new Map(result.photos.map((p) => [p.id, p]));
-  const photosById = { ...state.photosById };
-  const keepIds: PhotoId[] = [];
-  for (const id of scene.photoIds) {
-    const scored = byId.get(id);
-    if (scored && !scored.person) {
-      delete photosById[id]; // not a photo of a person: Picky never touches it
-      continue;
-    }
-    keepIds.push(id);
-    photosById[id] = { ...photosById[id], gated: scored?.gated ?? true, scores: scored?.scores };
-  }
-  return {
-    ...state,
-    photosById,
-    scenes: state.scenes.map((s) => (s.id === sceneId ? { ...s, label: result.label, photoIds: keepIds } : s)),
-  };
-}
-
-const PickyContext = createContext<PickyContextValue | null>(null);
-
+const Context = createContext<PickyContextValue | null>(null);
+const profileFile = () => new File(Paths.document, 'picky-counter-preferences-v1.json');
+const backupFile = () => new File(Paths.document, 'picky-counter-preferences-v1-backup.json');
+const readSaved = (file: File) => { try { return file.exists ? file.textSync() : undefined; } catch { return undefined; } };
+const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export function PickyProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PickyState>(initialState);
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  const setBusy = (status?: string) => setState((s) => ({ ...s, busy: !!status, status, error: undefined }));
-
-  const loadAlbum = useCallback(async () => {
-    setBusy('Reading today’s photos…');
+  const [boot] = useState(() => {
     try {
-      const { photosById, scenes } = await loadTodaysScenes();
-      setState({ ...initialState(), photosById, scenes, freedBytes: stateRef.current.freedBytes });
-    } catch (e) {
-      setState((s) => ({ ...s, busy: false, status: undefined, error: errorText(e) }));
-    }
-  }, []);
-
-  // auto-detect state: what's already curated, the pending idle notification and timer
-  const lastCuratedAt = useRef(0);
-  const running = useRef(false);
+      if (Platform.OS !== 'web' && (profileFile().exists || backupFile().exists)) {
+        const restored = recoverPreferences(readSaved(profileFile()), readSaved(backupFile()));
+        if (restored.profile.preference) throw new Error('Experimental model is not a counter snapshot.');
+        return { ...restored, error: restored.recovered ? 'Recovered the previous preference snapshot.' : undefined };
+      }
+    } catch { return { profile: emptyProfile(), lastCuratedAt: 0, processedIds: [] as string[], error: 'Saved preferences could not be loaded. A new profile is active.' }; }
+    return { profile: emptyProfile(), lastCuratedAt: 0, processedIds: [] as string[], error: undefined };
+  });
+  const [state, setState] = useState<PickyState>(() => ({ ...initialState(boot.profile), error: boot.error }));
+  const current = useRef(state); const running = useRef(false); const revision = useRef(0);
+  const lastCuratedAt = useRef(boot.lastCuratedAt); const processedIds = useRef(new Set(boot.processedIds));
   const idleNotificationId = useRef<string | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkRef = useRef<() => Promise<void>>(async () => {});
-
-  const simulateNight = useCallback(async () => {
+  const commit = useCallback((next: PickyState) => { current.current = next; setState(next); }, []);
+  const cancelRun = useCallback(() => { revision.current++; }, []);
+  const save = useCallback((next: PickyState, clearBackup = false) => {
+    try {
+      if (Platform.OS !== 'web') {
+        const file = profileFile(); const previous = readSaved(file);
+        let previousValid = false;
+        if (previous) { try { decodePreferences(previous); previousValid = true; } catch { /* Preserve a valid backup over corrupt primary data. */ } }
+        const encoded = encodePreferences(next.profile, lastCuratedAt.current, [...processedIds.current]);
+        if (clearBackup || previousValid) {
+          const backup = backupFile(); if (!backup.exists) backup.create();
+          backup.writeSync(clearBackup ? encoded : previous!);
+        }
+        if (!file.exists) file.create();
+        file.writeSync(encoded);
+      }
+    } catch { next = { ...next, error: 'Preferences changed in memory but could not be saved to this device.' }; }
+    commit(next);
+  }, [commit]);
+  const loadAlbum = useCallback(async () => {
     if (running.current) return;
-    running.current = true;
-    setBusy('Reading today’s photos…');
+    running.current = true; const version = revision.current;
+    commit({ ...current.current, busy: true, status: 'Reading today’s photos…', error: undefined });
     try {
       const loaded = await loadTodaysScenes();
-      lastCuratedAt.current = Math.max(0, ...Object.values(loaded.photosById).map((p) => p.takenAt));
+      if (version !== revision.current) return;
+      commit({ ...beginCuration(current.current, loaded), busy: false, status: undefined });
+    } catch (error) {
+      if (version === revision.current) commit({ ...current.current, busy: false, status: undefined, error: errorText(error) });
+    } finally { running.current = false; }
+  }, [commit]);
+  const simulateNight = useCallback(async () => {
+    if (running.current) return;
+    running.current = true; const version = revision.current;
+    commit({ ...current.current, busy: true, status: 'Reading today’s photos…', error: undefined });
+    try {
+      const loaded = await loadTodaysScenes();
+      if (version !== revision.current) return;
       if (idleTimer.current) clearTimeout(idleTimer.current);
-      await cancelNotification(idleNotificationId.current);
-      idleNotificationId.current = null;
-      let next: PickyState = { ...initialState(), ...loaded, freedBytes: stateRef.current.freedBytes, busy: true };
-      const sceneCount = next.scenes.length;
-      setState({ ...next, status: `Looking at ${sceneCount} scenes…` });
-      // one Claude call per scene, two at a time, each retried once; a scene that still fails is
-      // left untouched (its photos are never binned) instead of failing the whole run
-      const base = next;
-      const scored: (PickyState | null)[] = new Array(sceneCount).fill(null);
-      let done = 0;
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < sceneCount) {
-          const i = cursor++;
-          const id = base.scenes[i].id;
-          scored[i] = await scoreScene(base, id).catch(() => scoreScene(base, id)).catch(() => null);
-          done += 1;
-          setState((s) => ({ ...s, status: `Looked at ${done} of ${sceneCount} scenes…` }));
-        }
-      };
-      await Promise.all([worker(), worker()]);
-      if (scored.every((s) => s === null)) throw new Error('Scoring failed for every scene. Check the dev server.');
-      const failedIds = new Set(base.scenes.filter((_, i) => scored[i] === null).map((s) => s.id));
-      for (const [i, s] of base.scenes.entries()) {
-        const sceneState = scored[i];
-        if (!sceneState) continue;
-        const scene = sceneState.scenes.find((x) => x.id === s.id)!;
-        const photosById = { ...next.photosById };
-        for (const id of s.photoIds) {
-          if (sceneState.photosById[id]) photosById[id] = sceneState.photosById[id];
-          else delete photosById[id];
-        }
-        next = { ...next, photosById, scenes: next.scenes.map((x) => (x.id === s.id ? scene : x)) };
-      }
-      // drop scenes that couldn't be scored (and their photos) from this run
-      const photosById = { ...next.photosById };
-      for (const s of next.scenes) if (failedIds.has(s.id)) for (const id of s.photoIds) delete photosById[id];
-      next = {
-        ...next,
-        photosById,
-        scenes: next.scenes.filter((s) => s.photoIds.length > 0 && !failedIds.has(s.id)),
-        error: failedIds.size > 0 ? `${failedIds.size} scene(s) couldn't be scored and were left untouched.` : undefined,
-      };
-      const curated = {
-        ...advance(next, 0),
-        busy: false,
-        status: undefined,
-        watch: undefined,
-        profileHistory: [next.profile],
-        myPicks: stateRef.current.myPicks, // keep marked picks across re-runs (same photo ids)
-      };
-      setState(curated);
-      await scheduleNightNotification(curated);
-    } catch (e) {
-      setState((s) => ({ ...s, busy: false, status: undefined, error: errorText(e) }));
-    } finally {
-      running.current = false;
-    }
-  }, []);
-
-  // New photos since the last curation? Wait until the shoot is over (no new photo for IDLE_MINUTES),
-  // then curate by itself. While Picky is in the background, a scheduled notification covers that moment.
+      await cancelNotification(idleNotificationId.current); idleNotificationId.current = null;
+      let next = beginCuration(current.current, loaded);
+      let prepared: { sceneId: string; photos: { id: string; imageBase64: string }[] } | undefined;
+      const scored = await scoreCurationScenes(next, {
+        isCurrent: () => version === revision.current,
+        progress: (done, total) => { if (version === revision.current) commit({ ...current.current, status: `Looked at ${done} of ${total} scenes…` }); },
+        observe: async (scene) => {
+          if (prepared?.sceneId !== scene.id) {
+            const photos = [];
+            for (const id of scene.photoIds) photos.push({ id, imageBase64: await toBase64(next.photosById[id].uri) });
+            prepared = { sceneId: scene.id, photos };
+          }
+          if (version !== revision.current) throw new Error('Curation cancelled.');
+          return selectScene(scene.id, prepared.photos);
+        },
+      });
+      if (scored.cancelled) return;
+      next = scored.state;
+      if (version !== revision.current) return;
+      next = advance({ ...next, scenes: next.scenes.filter((s) => s.photoIds.length) }, 0);
+      next = { ...next, busy: false, status: undefined, watch: undefined, profileHistory: [next.profile],
+        error: scored.failedCount ? `${scored.failedCount} scene(s) could not be scored. Their originals remain untouched and can be retried.` : next.scenes.length ? undefined : 'No single-person portrait photos were found. Originals remain in your album.' };
+      // Failed scenes never advance their checkpoint; reset cancels all late results.
+      lastCuratedAt.current = Math.max(lastCuratedAt.current, ...scored.processedIds.map((id) => loaded.photosById[id].takenAt));
+      processedIds.current = new Set([...processedIds.current, ...scored.processedIds].slice(-600));
+      save(next);
+      try { await scheduleNightNotification(next, () => version === revision.current); } catch { /* Notification failure cannot discard preferences. */ }
+    } catch (error) {
+      if (version === revision.current) commit({ ...current.current, busy: false, status: undefined, error: errorText(error) });
+    } finally { running.current = false; }
+  }, [commit, save]);
   const checkForNewPhotos = useCallback(async () => {
     if (Platform.OS === 'web' || running.current) return;
+    const version = revision.current;
     try {
-      const fresh = (await peekTodaysPhotoTimes()).filter((t) => t > lastCuratedAt.current);
+      const fresh = (await peekTodaysPhotos()).filter((p) => !processedIds.current.has(p.id));
+      if (version !== revision.current || running.current) return;
       if (idleTimer.current) clearTimeout(idleTimer.current);
-      if (fresh.length === 0) {
-        setState((s) => (s.watch ? { ...s, watch: undefined } : s));
-        return;
-      }
-      const lastPhotoAt = Math.max(...fresh);
-      const readyAt = lastPhotoAt + IDLE_MINUTES * 60 * 1000;
-      setState((s) => ({ ...s, watch: { newPhotos: fresh.length, lastPhotoAt, readyAt } }));
-      if (Date.now() >= readyAt) {
-        await simulateNight();
-        return;
-      }
+      if (!fresh.length) { if (current.current.watch) commit({ ...current.current, watch: undefined }); return; }
+      const lastPhotoAt = Math.max(...fresh.map((p) => p.takenAt));
+      const readyAt = lastPhotoAt + IDLE_MINUTES * 60_000;
+      commit({ ...current.current, watch: { newPhotos: fresh.length, lastPhotoAt, readyAt } });
+      if (Date.now() >= readyAt) { await simulateNight(); return; }
       idleNotificationId.current = await scheduleIdleNotification(readyAt, fresh.length, idleNotificationId.current);
-      idleTimer.current = setTimeout(() => void checkRef.current(), readyAt - Date.now() + 500);
-    } catch (e) {
-      setState((s) => ({ ...s, error: errorText(e) }));
-    }
-  }, [simulateNight]);
-
-  useEffect(() => {
-    checkRef.current = checkForNewPhotos;
-  }, [checkForNewPhotos]);
-
-  // check when the app opens, when it comes back to the foreground, and when the library changes
+      if (version !== revision.current) { await cancelNotification(idleNotificationId.current); return; }
+      idleTimer.current = setTimeout(() => void checkRef.current(), Math.max(0, readyAt - Date.now() + 500));
+    } catch (error) { if (version === revision.current) commit({ ...current.current, error: errorText(error) }); }
+  }, [commit, simulateNight]);
+  useEffect(() => { checkRef.current = checkForNewPhotos; }, [checkForNewPhotos]);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     void checkRef.current();
-    const appSub = AppState.addEventListener('change', (s) => s === 'active' && void checkRef.current());
-    const librarySub = onLibraryChange(() => void checkRef.current());
-    return () => {
-      appSub.remove();
-      librarySub.remove();
-      if (idleTimer.current) clearTimeout(idleTimer.current);
-    };
-  }, []);
-
-  // Back up to Google Drive first, then delete from the phone only the photos Drive confirmed.
+    const app = AppState.addEventListener('change', (value) => { if (value === 'active') void checkRef.current(); });
+    const library = onLibraryChange(() => void checkRef.current());
+    return () => { cancelRun(); app.remove(); library.remove(); if (idleTimer.current) clearTimeout(idleTimer.current); };
+  }, [cancelRun]);
   const freeUpSpace = useCallback(async () => {
-    const binned = Object.values(stateRef.current.photosById).filter((p) => p.status === 'binned' && !p.deleted);
-    if (binned.length === 0) return;
-    const drive = await isDriveConfigured();
-    const ok = await new Promise<boolean>((resolve) =>
-      Alert.alert(
-        'Free up space',
-        drive
-          ? `Back up ${binned.length} photos Picky didn't keep to your Google Drive ("Picky Cloud Bin", kept 30 days), then delete them from this phone?`
-          : `Google Drive isn't connected. Delete ${binned.length} photos Picky didn't keep? They stay in Recently Deleted for 30 days.`,
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: drive ? 'Back up & delete' : 'Delete', style: 'destructive', onPress: () => resolve(true) },
-        ],
-      ),
-    );
-    if (!ok) return;
+    if (running.current) return;
+    const binned = Object.values(current.current.photosById).filter((p) => p.status === 'binned' && !p.deleted);
+    if (!binned.length) return;
+    running.current = true; const version = revision.current;
+    commit({ ...current.current, busy: true, status: 'Checking Drive backup…', error: undefined });
     try {
-      let toDelete = binned;
-      let failed = 0;
-      if (drive) {
-        toDelete = [];
-        for (const [i, p] of binned.entries()) {
-          setBusy(`Backing up ${i + 1} of ${binned.length} to Google Drive…`);
-          try {
-            const driveFileId = await uploadToDrive(p.id, `picky-${p.takenAt}.jpg`, await toFullJpegBase64(p.uri));
-            toDelete.push({ ...p, driveFileId });
-            setState((s) => ({ ...s, photosById: { ...s.photosById, [p.id]: { ...s.photosById[p.id], driveFileId } } }));
-          } catch {
-            failed += 1; // never delete a photo whose backup failed
-          }
-        }
-        setBusy(undefined);
-      }
-      const deleted = await deleteFromPhone(toDelete.map((p) => p.id));
-      if (!deleted) return;
-      setState((s) => {
-        let freed = 0;
-        const photosById = { ...s.photosById };
-        for (const p of toDelete) {
-          freed += p.sizeBytes ?? 0;
-          photosById[p.id] = { ...photosById[p.id], deleted: true };
-        }
-        const error = failed > 0 ? `${failed} photos couldn't be backed up, so Picky kept them on your phone.` : undefined;
-        return { ...s, photosById, freedBytes: s.freedBytes + freed, error };
+      const configured = await isDriveConfigured();
+      if (version !== revision.current) return;
+      if (!configured) throw new Error('Google Drive backup is not connected. No original photos were deleted.');
+      const confirmed = await new Promise<boolean>((resolve) => Alert.alert('Back up JPEG copies & free space',
+        `Upload JPEG copies of ${binned.length} photos to the configured Google Drive account, then remove only verified copies from this phone? JPEG copies do not preserve original HEIC format or Live Photo motion; original metadata is not guaranteed.`,
+        [{ text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Back up & delete', style: 'destructive', onPress: () => resolve(true) }]));
+      if (version !== revision.current) return;
+      if (!confirmed) { commit({ ...current.current, busy: false, status: undefined }); return; }
+      let index = 0;
+      const result = await backupThenDelete(binned, {
+        isCurrent: () => version === revision.current,
+        backup: async (photo) => {
+          commit({ ...current.current, status: `Backing up ${++index} of ${binned.length}…` });
+          return uploadToDrive(photo.id, `picky-${photo.takenAt}.jpg`, await toFullJpegBase64(photo.uri));
+        },
+        onBackedUp: (photo, receipt) => commit({ ...current.current, photosById: { ...current.current.photosById,
+          [photo.id]: { ...current.current.photosById[photo.id], driveFileId: receipt.driveFileId } } }),
+        remove: deleteFromPhone,
       });
-    } catch (e) {
-      setState((s) => ({ ...s, busy: false, status: undefined, error: errorText(e) }));
-    }
-  }, []);
-
-  const actions = useMemo<PickyActions>(
-    () => ({
-      loadAlbum,
-      curateNextScene: async () => setState((s) => advance(s, s.review?.index ?? 0)),
-      simulateNight,
-      answer: async (a) => setState((s) => withHistory(s, applyAnswer(s, a))),
-      setMyPick: (sceneId, photoId) =>
-        setState((s) => {
-          const myPicks = { ...s.myPicks };
-          if (myPicks[sceneId] === photoId) delete myPicks[sceneId];
-          else myPicks[sceneId] = photoId;
-          return { ...s, myPicks };
-        }),
-      freeUpSpace,
-      rescue: (id) => setState((s) => applyRescue(s, id)),
-      reset: () => {
-        lastCuratedAt.current = 0; // the next check treats today's photos as new again
-        setState((s) => ({ ...initialState(), freedBytes: s.freedBytes }));
-      },
-    }),
-    [loadAlbum, simulateNight, freeUpSpace],
-  );
-
-  const value = useMemo(() => ({ state, actions }), [state, actions]);
-  return <PickyContext.Provider value={value}>{children}</PickyContext.Provider>;
+      if (version !== revision.current) return;
+      const photosById = { ...current.current.photosById }; let freed = 0;
+      for (const id of result.deleted) { freed += photosById[id].sizeBytes ?? 0; photosById[id] = { ...photosById[id], deleted: true }; }
+      commit({ ...current.current, photosById, freedBytes: current.current.freedBytes + freed, busy: false, status: undefined,
+        error: result.failed.length ? `${result.failed.length} backups failed. Their originals remain on this phone.` : undefined });
+    } catch (error) {
+      if (version === revision.current) commit({ ...current.current, busy: false, status: undefined, error: errorText(error) });
+    } finally { running.current = false; }
+  }, [commit]);
+  const actions = useMemo<PickyActions>(() => ({
+    loadAlbum, simulateNight, curateNextScene: async () => { if (!running.current) commit(advance(current.current, current.current.review?.index ?? 0)); },
+    answer: async (answer, expected) => { if (!running.current) save(withHistory(current.current, applyAnswer(current.current, answer, expected))); },
+    setMyPick: (sceneId, photoId) => {
+      if (running.current || !current.current.scenes.some((s) => s.id === sceneId && s.photoIds.includes(photoId))) return;
+      const myPicks = { ...current.current.myPicks };
+      if (myPicks[sceneId] === photoId) delete myPicks[sceneId];
+      else myPicks[sceneId] = photoId;
+      commit({ ...current.current, myPicks });
+    },
+    freeUpSpace,
+    rescue: (id) => { if (!running.current) save(applyRescue(current.current, id)); },
+    reset: () => {
+      cancelRun(); lastCuratedAt.current = 0; processedIds.current.clear();
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+      void cancelNotification(idleNotificationId.current).catch(() => {}); idleNotificationId.current = null;
+      save({ ...initialState(), freedBytes: current.current.freedBytes }, true);
+    },
+  }), [loadAlbum, simulateNight, commit, save, cancelRun, freeUpSpace]);
+  return <Context.Provider value={{ state, actions }}>{children}</Context.Provider>;
 }
-
 export function usePicky(): PickyContextValue {
-  const ctx = useContext(PickyContext);
-  if (!ctx) throw new Error('usePicky must be used inside <PickyProvider>');
-  return ctx;
+  const value = useContext(Context);
+  if (!value) throw new Error('usePicky must be used inside PickyProvider');
+  return value;
 }

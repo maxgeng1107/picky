@@ -39,7 +39,7 @@ export default function ReviewScreen() {
   const A = state.photosById[review.aId];
   const B = state.photosById[review.bId];
   const scene = state.scenes.find((s) => s.id === review.sceneId);
-  const answer = (a: Answer) => actions.answer(a);
+  const answer = (a: Answer) => actions.answer(a, state.review ?? undefined);
 
   return (
     <Screen
@@ -52,19 +52,19 @@ export default function ReviewScreen() {
         </View>
         <View style={styles.col}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            B · In Cloud Bin
+            B · Another original
           </ThemedText>
           <Photo uri={B.uri} />
         </View>
       </View>
 
       <View style={styles.buttons}>
-        <PickyButton label="Keep A" variant="outline" style={styles.half} onPress={() => answer('keepA')} />
-        <PickyButton label="B replaces A" style={styles.half} onPress={() => answer('replace')} />
+        <PickyButton disabled={state.busy} label="Keep A" variant="outline" style={styles.half} onPress={() => answer('keepA')} />
+        <PickyButton disabled={state.busy} label="B replaces A" style={styles.half} onPress={() => answer('replace')} />
       </View>
       <View style={styles.buttons}>
-        <PickyButton label="Keep both" variant="ghost" style={styles.half} onPress={() => answer('keepBoth')} />
-        <PickyButton label="Skip" variant="ghost" style={styles.half} onPress={() => answer('skip')} />
+        <PickyButton disabled={state.busy} label="Keep both" variant="ghost" style={styles.half} onPress={() => answer('keepBoth')} />
+        <PickyButton disabled={state.busy} label="Skip" variant="ghost" style={styles.half} onPress={() => answer('skip')} />
       </View>
 
       {toast}

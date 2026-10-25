@@ -40,7 +40,7 @@ function AccuracyCard({ state }: { state: PickyState }) {
   if (Object.keys(picks).length === 0) {
     return (
       <Card>
-        <ThemedText type="smallBold">Accuracy test</ThemedText>
+        <ThemedText type="smallBold">Practice set · keeper hit rate</ThemedText>
         <ThemedText themeColor="textSecondary">
           On Today, tap the photo you picked beforehand in each scene (⭐). Then answer Your call — this card shows how
           often Picky keeps your pick after each answer.
@@ -54,7 +54,7 @@ function AccuracyCard({ state }: { state: PickyState }) {
   const pct = (n: number) => (total ? n / total : 0);
   return (
     <Card>
-      <ThemedText type="smallBold">Accuracy test · {total} scenes you picked beforehand</ThemedText>
+      <ThemedText type="smallBold">Practice set · {total} marked scenes</ThemedText>
       <View style={styles.accRow}>
         <ThemedText type="small" style={styles.accLabel}>
           Generic app
@@ -82,7 +82,7 @@ function AccuracyCard({ state }: { state: PickyState }) {
         </View>
       ))}
       <ThemedText type="small" themeColor="textSecondary">
-        A hit = Picky&apos;s 1–3 keepers include your pick. Includes scenes you answered questions on.
+        A hit = Picky&apos;s 1–3 keepers include your pick. Includes scenes used for learning and is not a held-out accuracy test.
       </ThemedText>
     </Card>
   );

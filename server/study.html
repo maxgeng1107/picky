@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Picky · 真人选片实验</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#20332b;background:#f5f6f1}body{max-width:1050px;margin:32px auto;padding:0 20px}h1{font-size:28px}p{line-height:1.65}section{background:white;padding:24px;border-radius:16px;margin:16px 0}input,button{font:inherit;padding:11px;border:1px solid #c7d2ca;border-radius:8px}label{display:block;margin:12px 0}input[type=text]{width:min(90%,550px)}button{cursor:pointer;background:#1e694b;color:white;border:0;margin:4px}button:disabled{opacity:.45;cursor:wait}.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}.pair img{width:100%;height:min(60vh,600px);object-fit:contain;background:#efefeb;border-radius:8px}.pair figure{margin:0}figcaption{font-weight:bold;margin:8px 0}.muted{color:#607269;font-size:14px}#error{color:#9b3026;white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd}pre{padding:16px;background:#f4f5f1;overflow:auto}a{color:#1e694b}.actions{margin-top:16px} [hidden]{display:none!important}
+</style>
+<h1>Picky · 真人选片实验</h1>
+<p>固定一个用途，选你自己更喜欢的照片。先收集学习选择，再验证独立拍摄场景；完成前隐藏模型分数和答案。</p>
+<p id="config" class="muted">检查本地服务…</p><p id="error" role="alert"></p>
+<section id="setup">
+<label>参与者代号（例如 user01）<br><input id="participant" type="text" maxlength="80" placeholder="不需要真实姓名"></label>
+<label>这次选片用途<br><input id="purpose" type="text" maxlength="200" placeholder="例如：选自然、适合朋友圈的单人照片"></label>
+<p>先在电脑建一个目录，按拍摄场景分开；同一次连拍全部放同一侧。每场景 2–12 张 JPEG / PNG / WebP，整个实验最多 120 张。建议 train / test 各至少 5 个场景。</p>
+<pre>PickyStudy/
+  train/
+    session-01/  （这个场景的照片）
+    session-02/
+  test/
+    session-11/
+    session-12/</pre>
+<label>选择最外层 PickyStudy 文件夹<br><input id="folder" type="file" webkitdirectory multiple></label>
+<label><input id="consent" type="checkbox"> 我同意将所选照片发送给 Anthropic 提取视觉特征，供本次实验使用。</label>
+<label><input id="stability" type="checkbox"> 对第一个场景额外请求一次 VLM，交换图片顺序，测评分稳定性（增加一次调用）。</label>
+<p class="muted">原图留在电脑。浏览器保留预览；本地实验文件仅记录特征、图像哈希和选择。每进程默认最多 60 次 VLM 请求；这里不使用模拟分数。</p>
+<button id="start" disabled>提取特征，开始实验</button><p id="progress" aria-live="polite"></p>
+</section>
+<section id="choice" hidden>
+<p id="counter"></p><p id="task"></p><div class="pair"><figure><figcaption>A</figcaption><img id="a" alt="候选照片 A"></figure><figure><figcaption>B</figcaption><img id="b" alt="候选照片 B"></figure></div>
+<div class="actions"><button data-target="1">选 A</button><button data-target="0">选 B</button><button data-target="0.5">没有偏好，都可以</button><button data-target="skip">无法判断，跳过</button></div>
+<p class="muted">“没有偏好”会记为明确平局；“跳过”不会作为训练或准确率标签。部分图片对会交换位置重复出现，用于测选择一致性。</p>
+</section>
+<section id="result" hidden><h2>本次真人实验结果</h2><p id="summary"></p><table><thead><tr><th>学习选择数</th><th>当前计数器</th><th>个人排序器</th><th>细微子集</th></tr></thead><tbody id="rows"></tbody></table><p id="caveat"></p></section>
+<section id="export" hidden><a href="/api/download" download>下载实验数据 JSON</a><p class="muted">数据也会自动保存在 server/runs/。这是私人实验数据，请勿提交到公共仓库。重新开始或刷新页面后，图片预览需重新选择；当前版本不支持恢复未完成的选择流程。</p></section>
+<script>
+const $=id=>document.getElementById(id);let previews=new Map(),question=null,working=false;
+const showError=e=>$('error').textContent=e.message||String(e);
+async function api(path,data){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(150000)});const value=await response.json();if(!response.ok)throw Error(value.error||'请求失败');return value}
+fetch('/api/config').then(r=>r.json()).then(c=>{$('config').textContent=c.keyConfigured&&c.model?'已配置真实 VLM：'+c.model:'先在本地 .env 配置 ANTHROPIC_API_KEY 和 ANTHROPIC_MODEL，再重启服务。';$('start').disabled=!(c.keyConfigured&&c.model)}).catch(showError);
+async function encode(file){const url=URL.createObjectURL(file);try{const image=new Image();image.src=url;await image.decode();const scale=Math.min(1,1568/Math.max(image.naturalWidth,image.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));if(!blob)throw Error('无法编码 '+file.name);const hash=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());const id=Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob)});previews.set(id,data);return{id,imageBase64:data.split(',')[1]}}finally{URL.revokeObjectURL(url)}}
+$('start').onclick=async()=>{if(working)return;$('error').textContent='';try{if(!$('consent').checked)throw Error('请先阅读并勾选图片发送说明。');const files=Array.from($('folder').files);if(files.some(f=>/\.heic$/i.test(f.name)))throw Error('请先把 HEIC 导出为 JPEG，再选择文件夹。');const groups=new Map();for(const file of files){if(!/\.(jpe?g|png|webp)$/i.test(file.name))continue;const parts=file.webkitRelativePath.split('/').slice(1);if(parts.length!==3||!['train','test'].includes(parts[0]))throw Error('目录必须为 PickyStudy/train或test/场景名/图片。');const key=parts[0]+'/'+parts[1];if(!groups.has(key))groups.set(key,{split:parts[0],sceneId:parts[1],files:[]});groups.get(key).files.push(file)}if(!groups.size||groups.size>24)throw Error('需要 1–24 个拍摄场景。');if(![...groups.values()].some(g=>g.split==='train')||![...groups.values()].some(g=>g.split==='test'))throw Error('train 和 test 都需要独立拍摄场景。');if([...groups.values()].some(g=>g.files.length<2||g.files.length>12))throw Error('每个场景需 2–12 张图片。');if([...groups.values()].reduce((n,g)=>n+g.files.length,0)>120)throw Error('最多 120 张图片。');if(new Set([...groups.values()].map(g=>g.sceneId)).size!==groups.size)throw Error('场景文件夹名不能重复，包括 train 与 test 之间。');working=true;$('start').disabled=true;previews.clear();await api('/api/begin',{participant:$('participant').value,purpose:$('purpose').value});$('export').hidden=false;let i=0;for(const group of [...groups.values()].sort((a,b)=>(a.split+'/'+a.sceneId).localeCompare(b.split+'/'+b.sceneId))){$('progress').textContent='真实 VLM 提取特征：场景 '+(++i)+' / '+groups.size+'，请保持页面打开…';const photos=[];for(const file of group.files.sort((a,b)=>a.name.localeCompare(b.name)))photos.push(await encode(file));await api('/api/scene',{sceneId:group.sceneId,split:group.split,photos,checkStability:i===1&&$('stability').checked})}const state=await api('/api/start',{});$('setup').hidden=true;$('choice').hidden=false;await render(state)}catch(e){showError(e);$('start').disabled=false}finally{working=false}};
+async function render(state){question=state.question;if(question){$('counter').textContent='第 '+(state.answered+1)+' / '+state.total+' 个选择';$('task').textContent=$('purpose').value;$('a').src=previews.get(question.aId);$('b').src=previews.get(question.bId);return}const report=await api('/api/report',{});$('choice').hidden=true;$('result').hidden=false;const pct=x=>x===null?'样本不足':(x*100).toFixed(1)+'%';$('summary').textContent='真实 VLM：'+report.model+'；训练 / 测试场景 '+report.sessions.train+' / '+report.sessions.test+'；重复选择一致率 '+pct(report.repeatedChoiceAgreement)+'。';$('rows').replaceChildren();for(const row of report.curve){const tr=document.createElement('tr');for(const value of [row.feedback,pct(row.currentMainCounterAccuracy),pct(row.pairwiseAccuracy),pct(row.subtleAccuracy)+'（'+row.subtleTestPairs+' 对）']){const td=document.createElement('td');td.textContent=value;tr.append(td)}$('rows').append(tr)}$('caveat').textContent='本次只代表这位参与者和这个用途。细微子集按 VLM 观测分数定义；真人明确平局不计入准确率，模型预测并列记半分。置信区间、覆盖率和完整指标见 JSON。'}
+for(const button of document.querySelectorAll('[data-target]'))button.onclick=async()=>{if(working||!question)return;working=true;document.querySelectorAll('[data-target]').forEach(b=>b.disabled=true);$('error').textContent='';try{const target=button.dataset.target==='skip'?null:Number(button.dataset.target);await render(await api('/api/choice',{id:question.id,target}))}catch(e){showError(e)}finally{working=false;document.querySelectorAll('[data-target]').forEach(b=>b.disabled=false)}};
+</script></html>

@@ -29,13 +29,16 @@
     "react-native-safe-area-context": "~5.10.1",
     "react-native-screens": "~4.30.0",
     "react-native-web": "~0.21.4",
-    "react-native-worklets": "0.13.0"
+    "react-native-worklets": "0.13.0",
+    "expo-file-system": "~58.0.11"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
-    "eslint": "^9.0.0",
-    "eslint-config-expo": "~58.0.4",
-    "typescript": "~6.0.3"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^58.0.4",
+    "typescript": "~6.0.3",
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15"
   },
   "scripts": {
     "start": "expo start",
@@ -43,7 +46,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:preferences": "node --import tsx --test server/*.test.ts",
+    "experiment:preferences": "node --import tsx server/experiment.ts",
+    "typecheck:backend": "tsc --noEmit -p server/tsconfig.json",
+    "evaluate:preferences": "node --import tsx server/evaluate.ts",
+    "lint:backend": "eslint src/lib server --config server/eslint.config.cjs",
+    "experiment:real": "node --import tsx server/real-experiment.ts",
+    "typecheck": "tsc --noEmit"
   },
   "private": true
 }

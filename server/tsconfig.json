@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "./**/*.ts",
+    "../src/lib/personalization/**/*.ts",
+    "../src/lib/personalization/**/*.tsx",
+    "../src/lib/types.ts"
+  ]
+}
