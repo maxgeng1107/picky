@@ -1,4 +1,4 @@
-// Server-only route. Phone and real-user study share the same validated VLM observations.
+// Default phone route; fixed-anchor observations are isolated to the real-user study.
 import { validatePhotos, VisionError } from '../../../server/vision';
 import { observeLegacyPhotos } from '../../../server/legacy-vision';
 import { readJSON, RequestError } from '../../../server/http';

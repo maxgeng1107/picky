@@ -58,7 +58,7 @@ export async function observeLegacyPhotos(photos: { id: string; imageBase64: str
   const key = process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY;
   if (!key) throw new VisionError('Set ANTHROPIC_API_KEY in the local .env.', 503);
   const model = process.env.ANTHROPIC_MODEL || 'claude-opus-5-5';
-  const hash = createHash('sha256').update(JSON.stringify(['legacy', model, SYSTEM, DIMENSIONS, photos])).digest('hex');
+  const hash = createHash('sha256').update(JSON.stringify(['legacy-low-effort-v1', model, SYSTEM, DIMENSIONS, photos])).digest('hex');
   if (pending.has(hash)) return pending.get(hash)!;
   const task = async () => {
     const directory = process.env.VISION_CACHE_DIR || path.join(process.cwd(), '.picky-cache');
@@ -70,6 +70,8 @@ export async function observeLegacyPhotos(photos: { id: string; imageBase64: str
     if (!Number.isInteger(limit) || limit < 1 || calls >= limit) throw new VisionError('VLM call budget reached or misconfigured.', 503);
     if (active) throw new VisionError('Vision is busy; wait for the current scene.', 429);
     active = true; calls++;
+    const started = Date.now();
+    console.log(`[picky] scoring ${photos.length} photos…`);
     try {
       const client = new Anthropic({ apiKey: key, timeout: 60_000, maxRetries: 0, fetch: globalThis.fetch });
       const content: Anthropic.Beta.BetaContentBlockParam[] = [];
@@ -80,7 +82,7 @@ export async function observeLegacyPhotos(photos: { id: string; imageBase64: str
       content.push({ type: 'text', text: `Score all ${photos.length} photos (p1–p${photos.length}). Dimensions:\n${DIMENSIONS.map((d) => `- ${d.key}: ${d.definition}`).join('\n')}` });
       const response = await client.beta.messages.create({ model, max_tokens: 16000,
         betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', system: SYSTEM,
-        output_config: { effort: 'medium', format: { type: 'json_schema', schema: schema() } }, messages: [{ role: 'user', content }] });
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: schema() } }, messages: [{ role: 'user', content }] });
       if (response.stop_reason !== 'end_turn') throw new Error('Vision response incomplete.');
       const text = response.content.find((p) => p.type === 'text');
       if (!text || text.type !== 'text') throw new Error('Empty vision response.');
@@ -95,8 +97,10 @@ export async function observeLegacyPhotos(photos: { id: string; imageBase64: str
       if (process.env.USE_CACHE !== '0') {
         try { await mkdir(directory, { recursive: true }); await writeFile(filename, JSON.stringify(result), { mode: 0o600 }); } catch { /* Valid scoring can still complete. */ }
       }
+      console.log(`[picky] scored ${photos.length} photos in ${((Date.now() - started) / 1000).toFixed(1)}s`);
       return result;
     } catch (e) {
+      console.error(`[picky] scoring failed after ${((Date.now() - started) / 1000).toFixed(1)}s`);
       if (e instanceof VisionError) throw e;
       if (e instanceof Anthropic.RateLimitError) throw new VisionError('Vision provider rate limited this request.', 429);
       if (e instanceof Anthropic.AuthenticationError) throw new VisionError('Vision credentials were rejected.', 503);

@@ -7,7 +7,7 @@ import { cancelNotification, scheduleIdleNotification, scheduleNightNotification
 import { IDLE_MINUTES, loadTodaysScenes, onLibraryChange, peekTodaysPhotos, toBase64, toFullJpegBase64, deleteFromPhone } from './photos';
 import { advance, applyAnswer, applyRescue, emptyProfile, withHistory } from './taste';
 import { beginCuration, decodePreferences, encodePreferences, initialState, recoverPreferences } from './preferences';
-import { acceptSceneScores } from './scoring';
+import { scoreCurationScenes } from './curation';
 import type { PickyActions, PickyContextValue, PickyState } from './types';
 
 const Context = createContext<PickyContextValue | null>(null);
@@ -73,23 +73,29 @@ export function PickyProvider({ children }: { children: ReactNode }) {
       if (idleTimer.current) clearTimeout(idleTimer.current);
       await cancelNotification(idleNotificationId.current); idleNotificationId.current = null;
       let next = beginCuration(current.current, loaded);
-      for (let i = 0; i < next.scenes.length; i++) {
-        if (version !== revision.current) return;
-        const scene = next.scenes[i];
-        commit({ ...next, status: `Looking at scene ${i + 1} of ${next.scenes.length}…` });
-        const photos = [];
-        for (const id of scene.photoIds) photos.push({ id, imageBase64: await toBase64(next.photosById[id].uri) });
-        if (version !== revision.current) return;
-        const result = await selectScene(scene.id, photos);
-        next = acceptSceneScores(next, scene.id, result);
-      }
+      let prepared: { sceneId: string; photos: { id: string; imageBase64: string }[] } | undefined;
+      const scored = await scoreCurationScenes(next, {
+        isCurrent: () => version === revision.current,
+        progress: (done, total) => { if (version === revision.current) commit({ ...current.current, status: `Looked at ${done} of ${total} scenes…` }); },
+        observe: async (scene) => {
+          if (prepared?.sceneId !== scene.id) {
+            const photos = [];
+            for (const id of scene.photoIds) photos.push({ id, imageBase64: await toBase64(next.photosById[id].uri) });
+            prepared = { sceneId: scene.id, photos };
+          }
+          if (version !== revision.current) throw new Error('Curation cancelled.');
+          return selectScene(scene.id, prepared.photos);
+        },
+      });
+      if (scored.cancelled) return;
+      next = scored.state;
       if (version !== revision.current) return;
       next = advance({ ...next, scenes: next.scenes.filter((s) => s.photoIds.length) }, 0);
       next = { ...next, busy: false, status: undefined, watch: undefined, profileHistory: [next.profile],
-        error: next.scenes.length ? undefined : 'No single-person portrait photos were found. Originals remain in your album.' };
-      // Only successful runs advance the checkpoint; reset cancels all late results.
-      lastCuratedAt.current = Math.max(0, ...Object.values(loaded.photosById).map((p) => p.takenAt));
-      processedIds.current = new Set([...processedIds.current, ...Object.keys(loaded.photosById)].slice(-600));
+        error: scored.failedCount ? `${scored.failedCount} scene(s) could not be scored. Their originals remain untouched and can be retried.` : next.scenes.length ? undefined : 'No single-person portrait photos were found. Originals remain in your album.' };
+      // Failed scenes never advance their checkpoint; reset cancels all late results.
+      lastCuratedAt.current = Math.max(lastCuratedAt.current, ...scored.processedIds.map((id) => loaded.photosById[id].takenAt));
+      processedIds.current = new Set([...processedIds.current, ...scored.processedIds].slice(-600));
       save(next);
       try { await scheduleNightNotification(next, () => version === revision.current); } catch { /* Notification failure cannot discard preferences. */ }
     } catch (error) {

@@ -19,8 +19,9 @@ test('phone route preserves main scoring format and fails on incomplete provider
   assert.equal((await post({ photos: [{ id: 'p', imageBase64: '/9j/' }] })).status, 503);
   process.env.LLM_API_KEY = 'fixture-key'; process.env.ANTHROPIC_MODEL = 'fixture-model'; process.env.USE_CACHE = '0'; process.env.MAX_VLM_CALLS = '5';
   let mode = 'ok'; let calls = 0;
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (_url, init) => {
     calls++;
+    assert.equal(JSON.parse(String(init?.body)).output_config.effort, 'low');
     const scores = Object.fromEntries(KEYS.map((k) => [k, 3]));
     return Response.json({ stop_reason: mode === 'truncated' ? 'max_tokens' : 'end_turn', content: [{ type: 'text', text: JSON.stringify({
       label: 'fixture', photos: [{ ref: 'p1', person: true, gated: false, scores }, { ref: 'p2', person: false, gated: false, scores }] }) }] });
