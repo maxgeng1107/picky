@@ -8,11 +8,9 @@
 
 Personalized AI photo curation for the everyday smartphone photographer.
 
-**Invisible Interfaces · Track 4: AI-Powered Consumer Products for 1 Billion People**
-
 **▶ [Watch the 2-minute demo](https://github.com/maxgeng1107/picky/releases/download/demo-video/picky-demo-captioned.mp4)** (captions + voiceover, real photos)
 
-[Why it's invisible](#why-picky-is-invisible) · [The opportunity](#a-global-habit-a-recurring-problem) · [Measured in our demo](#measured-in-our-demo) · [The experience](#how-picky-works) · [Invisible Interfaces](#built-for-invisible-interfaces) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
+[Why it's invisible](#why-picky-is-invisible) · [The opportunity](#a-global-habit-a-recurring-problem) · [Measured in our demo](#measured-in-our-demo) · [The experience](#how-picky-works) · [Ambient by design](#ambient-by-design) · [Commercial potential](#a-focused-start-with-room-to-grow) · [Run Picky](#run-picky)
 
 </div>
 
@@ -44,7 +42,7 @@ Before anything is deleted, Picky backs up the photos to **your own private Goog
 - **Storage:** one hour of shooting in our test produced **322 photos**; Picky kept **55** and freed about **1 GB**.
 - **Time:** in the first days, you spend about as much time as sorting yourself, because you are teaching Picky. The more you use it, the less you do — until all that's left is one tap.
 
-*Prototype note: iOS doesn't let apps run the moment a photo is taken, so today Picky notices new photos when it is opened or comes back to the foreground, and a reminder fires when the shoot looks over. A native build would run in the background (e.g. overnight while charging); Android can react to each new photo. Google Drive backup is built but was not connected in the recorded demo, so the demo deletes to Recently Deleted (kept 30 days). More detail in [Built for Invisible Interfaces](#built-for-invisible-interfaces).*
+*Prototype note: iOS doesn't let apps run the moment a photo is taken, so today Picky notices new photos when it is opened or comes back to the foreground, and a reminder fires when the shoot looks over. A native build would run in the background (e.g. overnight while charging); Android can react to each new photo. Google Drive backup is built but was not connected in the recorded demo, so the demo deletes to Recently Deleted (kept 30 days). More detail in [Ambient by design](#ambient-by-design).*
 
 ## A global habit. A recurring problem.
 
@@ -109,11 +107,11 @@ Our success metric is **less active sorting time while keeping the photos people
 
 The prototype provides three views: **Today** for suggestions, **Your call** for comparisons, and **Your taste** for accumulated preference evidence.
 
-## Built for Invisible Interfaces
+## Ambient by design
 
 **The product direction is ambient curation: photography creates the context, the system does the repetitive work, and the user contributes small corrections when useful.**
 
-Picky applies the challenge's sense–decide–act idea to an everyday consumer task:
+Picky applies a sense–decide–act loop to an everyday consumer task:
 
 | Layer | Picky's approach |
 | --- | --- |
@@ -122,7 +120,7 @@ Picky applies the challenge's sense–decide–act idea to an everyday consumer 
 | **Act** | Prepare recommendations, send local reminders, and offer confirmed backup and removal |
 | **Adapt** | Let explicit choices change how later photos are ranked |
 
-This makes **Track 4: AI-Powered Consumer Products for 1 Billion People** our primary fit: a broad, recurring need with a path toward less screen-driven interaction. Timeouts, bounded retries, response validation, caching, and a configurable model-call cap also support the challenge's emphasis on systems that know when to stop.
+Photo curation is a broad, recurring need with a path toward less screen-driven interaction. Timeouts, bounded retries, response validation, caching, and a configurable model-call cap keep the system predictable and let it know when to stop.
 
 **Today:** recommendations and A/B feedback use screens; detection runs while the app is active or when it returns to the foreground. Background reminders invite the user back. Voice interaction and full background curation are future work. The current prototype is a step toward the invisible experience, rather than a fully screen-free or continuously running agent.
 

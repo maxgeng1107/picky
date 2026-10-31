@@ -1,6 +1,6 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
-## Team & ownership (hackathon — read first)
+## Team & ownership (read first)
 
 Two people push to `main`. To avoid merge conflicts, each person edits **only their own folders**:
 
